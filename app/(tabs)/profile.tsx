@@ -2,21 +2,25 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import TopNavbar from '@/components/TopNavbar';
 
 export default function ProfileScreen() {
-  const menuItems = [
+  const router = useRouter();
+  const menuItems: { icon: any; label: string; count?: number; labelExtra?: string; onPress?: () => void }[] = [
     { icon: <Feather name="package" size={18} color="#FF7524" />, label: 'Tin đăng của tôi', count: 3 },
     { icon: <Feather name="heart" size={18} color="#FF7524" />, label: 'Tin đã lưu', count: 12 },
     { icon: <Feather name="message-square" size={18} color="#FF7524" />, label: 'Tin nhắn', count: 5 },
     { icon: <Feather name="clock" size={18} color="#FF7524" />, label: 'Lịch sử mua hàng', count: 0 },
     { icon: <Feather name="credit-card" size={18} color="#FF7524" />, label: 'Ví Twee', labelExtra: '0 VNĐ' },
+    { icon: <Feather name="settings" size={18} color="#FF7524" />, label: 'Cài đặt tài khoản' },
+    { icon: <Feather name="shield" size={18} color="#FF7524" />, label: 'Quản trị hệ thống', onPress: () => router.push('/admin/dashboard' as any) },
   ];
 
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <TopNavbar />
-
+      <TopNavbar title="HỒ SƠ" />
+      
       <ScrollView className="flex-1 p-6">
         {/* Profile Card */}
         <View className="items-center mb-10">
@@ -55,6 +59,7 @@ export default function ProfileScreen() {
           {menuItems.map((item, i) => (
             <TouchableOpacity 
               key={item.label} 
+              onPress={item.onPress}
               className="flex-row items-center justify-between p-6"
             >
               <View className="flex-row items-center">
@@ -78,7 +83,7 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        <TouchableOpacity className="flex-row items-center justify-center p-6 bg-surface-container-high rounded-full mb-32 border border-outline/10">
+        <TouchableOpacity className="flex-row items-center justify-center p-6 bg-surface-container-high rounded-full mb-20 border border-outline/10">
            <Feather name="log-out" size={18} color="#FF7524" />
            <Text className="text-primary font-black ml-3 uppercase tracking-[0.2em] text-xs">Đăng xuất</Text>
         </TouchableOpacity>

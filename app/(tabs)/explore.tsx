@@ -1,88 +1,192 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ImageBackground } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  ScrollView, 
+  TouchableOpacity, 
+  ImageBackground,
+  Image,
+  Platform,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import TopNavbar from '@/components/TopNavbar';
-
-const CATEGORIES = [
-  { id: '1', name: 'SÁCH & TRI THỨC', icon: 'book', color: 'bg-surface-container-high', count: '1.2k+' },
-  { id: '2', name: 'ĐỒ CHO NAM', icon: 'user', color: 'bg-secondary', text: 'text-[#3C1300]', count: '850+' },
-  { id: '3', name: 'THỜI TRANG NỮ', icon: 'shopping-bag', color: 'bg-surface-container', count: '2.4k+' },
-  { id: '4', name: 'ĐỒ LÀM ĐẸP', icon: 'zap', color: 'bg-surface-bright', count: '600+' },
-  { id: '5', name: 'PHƯƠNG TIỆN / XE', icon: 'truck', color: 'bg-surface-container-high', count: '200+' },
-  { id: '6', name: 'ĐỒ VĂN PHÒNG', icon: 'briefcase', color: 'bg-secondary', text: 'text-[#3C1300]', count: '450+' },
-  { id: '7', name: 'THIẾT BỊ ĐIỆN TỬ', icon: 'cpu', color: 'bg-surface-container', count: '3.1k+' },
-  { id: '8', name: 'KHÁC', icon: 'grid', color: 'bg-surface-container-high', count: '-' },
-];
+import { useNavigation } from 'expo-router';
+import TopNavbar from '../../components/TopNavbar';
+import { STATIC_CATEGORIES } from '../../constants/data';
 
 export default function ExploreScreen() {
+  const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
+  const navigation = useNavigation();
+
+  const insets = useSafeAreaInsets();
+  
+  useEffect(() => {
+    navigation.setOptions({
+      tabBarStyle: selectedCatId ? { display: 'none' } : {
+        height: Platform.OS === 'ios' ? 60 + insets.bottom : 72,
+        paddingBottom: Platform.OS === 'ios' ? insets.bottom : 12,
+        paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+        backgroundColor: '#FFFFFF',
+      },
+    });
+  }, [selectedCatId, navigation, insets.bottom]);
+
+  const selectedCategory = STATIC_CATEGORIES.find(c => c.id === selectedCatId);
+  const subCategories = selectedCategory?.subcategories || [];
+
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
-      <TopNavbar placeholder="Tìm kiếm trong danh mục..." />
-
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        <View className="px-6 py-8">
-          {/* Featured Hero for Explore */}
-          <TouchableOpacity 
-            activeOpacity={0.9}
-            className="w-full h-48 bg-primary rounded-[32px] overflow-hidden mb-10 relative"
-          >
-             <View className="p-8 z-10 flex-1 justify-center">
-                <Text className="text-background text-[10px] font-bold uppercase tracking-widest mb-2">Must See Collections</Text>
-                <Text className="text-background text-3xl font-black tracking-tighter uppercase leading-none">Siêu Phẩm{"\n"}Công Nghệ.</Text>
-                <TouchableOpacity className="mt-6 bg-secondary px-6 py-2 rounded-lg self-start">
-                   <Text className="text-[#3C1300] font-black text-[10px] uppercase tracking-widest">Xem ngay</Text>
-                </TouchableOpacity>
-             </View>
-             <View className="absolute right-[-20px] bottom-[-20px] opacity-10">
-                <Feather name="cpu" size={180} color="black" />
-             </View>
+    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
+      {selectedCatId ? (
+        <View className="flex-row items-center justify-between px-6 py-4 border-b border-black/5 bg-white">
+          <View className="flex-row items-center">
+            <TouchableOpacity 
+              onPress={() => setSelectedCatId(null)}
+              className="p-1 rounded-full"
+            >
+              <Feather name="arrow-left" size={24} color="#FF7524" />
+            </TouchableOpacity>
+            <Text className="ml-4 text-base font-black text-primary uppercase tracking-widest">
+              {selectedCategory?.name}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => navigation.navigate('search' as never)}>
+            <Feather name="search" size={22} color="#1A1A1A" />
           </TouchableOpacity>
-
-          {/* Main Categories Grid */}
-          <View className="flex-row flex-wrap justify-between">
-            {CATEGORIES.map((cat) => (
-              <TouchableOpacity 
-                key={cat.id}
-                activeOpacity={0.8}
-                className={`${cat.color} p-6 rounded-[28px] mb-4`}
-                style={{ width: '48%', height: 160 }}
-              >
-                <View className="flex-1 justify-between">
-                   <View className="bg-primary/10 self-start p-3 rounded-2xl">
-                    <Feather name={cat.icon as any} size={20} color={cat.text === 'text-[#3C1300]' ? "#3C1300" : "#FF7524"} />
-                   </View>
-                   <View>
-                      <Text className={`font-black text-xs uppercase tracking-widest leading-tight ${cat.text || 'text-primary'}`}>
-                        {cat.name}
-                      </Text>
-                      <Text className={`text-[9px] font-black mt-2 uppercase opacity-50 ${cat.text || 'text-primary'}`}>
-                        {cat.count} Sản phẩm
-                      </Text>
-                   </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Quick Browse Bar */}
-          <View className="mt-10 mb-20 bg-surface-container rounded-3xl p-8">
-            <Text className="text-xl font-black text-primary tracking-tighter mb-6 uppercase">Khám phá nhanh</Text>
-            <View className="flex-row items-center justify-between py-4 border-b border-outline/10">
-               <Text className="text-on-surface-variant font-bold text-sm">Gần vị trí của bạn</Text>
-               <Feather name="chevron-right" size={16} color="#444" />
-            </View>
-            <View className="flex-row items-center justify-between py-4 border-b border-outline/10">
-               <Text className="text-on-surface-variant font-bold text-sm">Đang giảm giá mạnh</Text>
-               <Feather name="chevron-right" size={16} color="#444" />
-            </View>
-            <View className="flex-row items-center justify-between py-4">
-               <Text className="text-on-surface-variant font-bold text-sm">Reviewers lựa chọn</Text>
-               <Feather name="chevron-right" size={16} color="#444" />
-            </View>
-          </View>
         </View>
-      </ScrollView>
+      ) : (
+        <TopNavbar placeholder="Tìm danh mục..." title="DANH MỤC" isExplore={true} />
+      )}
+
+      {selectedCatId ? (
+        <View className="flex-1 flex-row bg-white">
+          {/* Cột trái: Sidebar danh mục dọc */}
+          <View className="w-20 border-r border-black/5 bg-[#F9F9F9]">
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {STATIC_CATEGORIES.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={() => setSelectedCatId(cat.id)}
+                    className={`items-center py-4 px-1 ${selectedCatId === cat.id ? 'bg-white' : ''}`}
+                  >
+                    <View className={`w-12 h-12 rounded-full overflow-hidden mb-1 ${selectedCatId === cat.id ? 'border-2 border-secondary' : 'border border-black/5'}`}>
+                      <Image source={{ uri: cat.image_url }} className="w-full h-full" resizeMode="cover" />
+                    </View>
+                    <Text 
+                      className={`text-[8px] font-black uppercase text-center tracking-tighter ${selectedCatId === cat.id ? 'text-secondary' : 'text-primary/40'}`}
+                      numberOfLines={2}
+                    >
+                      {cat.name}
+                    </Text>
+                    {selectedCatId === cat.id && (
+                      <View className="absolute left-0 top-4 bottom-4 w-[3px] bg-secondary rounded-r-full" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Cột phải: Lưới 2 cột cate chi tiết */}
+            <View className="flex-1">
+              <ScrollView showsVerticalScrollIndicator={false} className="p-3">
+                <View className="flex-row flex-wrap">
+                  {subCategories.map((sub, idx) => (
+                    <TouchableOpacity 
+                      key={idx}
+                      className="mb-4 px-1"
+                      style={{ width: '50%' }}
+                    >
+                      <View className="w-full aspect-square rounded-2xl overflow-hidden mb-1.5 shadow-sm bg-white">
+                        <Image source={{ uri: sub.image_url }} className="w-full h-full" resizeMode="cover" />
+                      </View>
+                      <Text className="text-[11px] font-bold text-center text-primary leading-tight px-1" numberOfLines={2}>
+                        {sub.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View className="h-10" />
+              </ScrollView>
+            </View>
+          </View>
+        ) : (
+        <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+          <View className="px-6 py-8">
+            <View className="flex-row flex-wrap justify-between">
+              {STATIC_CATEGORIES.map((cat) => (
+                <TouchableOpacity 
+                  key={cat.id}
+                  activeOpacity={0.9}
+                  onPress={() => setSelectedCatId(cat.id)}
+                  className="mb-5 overflow-hidden rounded-[32px] border border-black/5"
+                  style={{ width: '48%', height: 210, backgroundColor: '#F8F8F8' }}
+                >
+                  <ImageBackground 
+                    source={{ uri: cat.image_url }} 
+                    className="flex-1"
+                    resizeMode="cover"
+                  >
+                    <View 
+                      className="flex-1 p-6 justify-between"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+                    >
+                      <View 
+                        className="self-start p-2 rounded-full border border-white/20"
+                        style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                      >
+                        <Feather name="layers" size={12} color="white" />
+                      </View>
+                      
+                      <View>
+                        <Text className="font-black text-xs uppercase text-white mb-1 tracking-widest leading-tight">
+                          {cat.name}
+                        </Text>
+                        <View className="flex-row items-center">
+                          <View className="h-[1px] w-4 mr-2" style={{ backgroundColor: '#FF7524' }} />
+                          <Text className="text-[10px] font-bold uppercase text-white opacity-80">
+                            {Math.floor(Math.random() * 50) + 10} Sản phẩm
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </ImageBackground>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View 
+              className="mt-8 mb-20 rounded-3xl p-8 border border-black/5"
+              style={{ backgroundColor: '#F9F9F9' }}
+            >
+              <Text className="text-xl font-black text-secondary mb-6 uppercase tracking-tighter">
+                Khám phá nhanh
+              </Text>
+              
+              <TouchableOpacity className="flex-row items-center justify-between py-5 border-b border-black/5">
+                  <Text className="text-primary font-bold text-sm">Gần vị trí của bạn</Text>
+                  <View className="bg-secondary/10 p-2 rounded-full">
+                    <Feather name="chevron-right" size={14} color="#FF7524" />
+                  </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity className="flex-row items-center justify-between py-5 border-b border-black/5">
+                  <Text className="text-primary font-bold text-sm">Đang giảm giá mạnh</Text>
+                  <View className="bg-secondary/10 p-2 rounded-full">
+                    <Feather name="chevron-right" size={14} color="#FF7524" />
+                  </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity className="flex-row items-center justify-between py-5">
+                  <Text className="text-primary font-bold text-sm">Reviewers lựa chọn</Text>
+                  <View className="bg-secondary/10 p-2 rounded-full">
+                    <Feather name="chevron-right" size={14} color="#FF7524" />
+                  </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 }

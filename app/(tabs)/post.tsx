@@ -9,7 +9,7 @@ export default function PostScreen() {
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       <TopNavbar />
  
-      <ScrollView className="flex-1 p-6">
+      <ScrollView className="flex-1 p-6" contentContainerStyle={{ paddingBottom: 120 }}>
         {/* Photo Upload Section */}
         <View className="mb-10">
           <Text className="text-[10px] font-bold text-on-surface-variant mb-4 uppercase tracking-[0.2em]">Hình ảnh sản phẩm</Text>
@@ -78,7 +78,7 @@ export default function PostScreen() {
           </View>
         </View>
  
-        <TouchableOpacity className="bg-secondary p-6 rounded-xl items-center mb-24">
+        <TouchableOpacity className="bg-secondary p-6 rounded-xl items-center mb-20">
           <Text className="text-[#3C1300] font-black text-lg uppercase tracking-[0.1em]">Niêm yết ngay</Text>
         </TouchableOpacity>
       </ScrollView>

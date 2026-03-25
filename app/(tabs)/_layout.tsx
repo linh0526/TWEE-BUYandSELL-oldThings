@@ -3,24 +3,31 @@ import React from 'react';
 import { View, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
   const activeColor = '#FF7524'; // Kinetic Orange
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: activeColor,
-        tabBarInactiveTintColor: '#ADAAAA',
+        tabBarInactiveTintColor: '#999999',
         headerShown: false,
         tabBarStyle: {
-           height: 90,
-           paddingBottom: 35,
+           height: Platform.OS === 'ios' ? 60 + insets.bottom : 72,
+           paddingBottom: Platform.OS === 'ios' ? insets.bottom : 12,
            paddingTop: 12,
-           borderTopWidth: 0,
-           backgroundColor: '#0E0E0E',
-           elevation: 0,
+           borderTopWidth: 1,
+           borderTopColor: '#F0F0F0',
+           backgroundColor: '#FFFFFF',
+           elevation: 10,
+           shadowColor: '#000',
+           shadowOffset: { width: 0, height: -2 },
+           shadowOpacity: 0.05,
+           shadowRadius: 10,
         },
         tabBarLabelStyle: {
            fontSize: 9,
@@ -47,6 +54,7 @@ export default function TabLayout() {
         name="post"
         options={{
           title: 'Đăng bán',
+          tabBarLabel: () => null,
           tabBarIcon: () => (
             <View 
               style={{
@@ -62,11 +70,9 @@ export default function TabLayout() {
                 shadowOpacity: 0.3,
                 shadowRadius: 10,
                 elevation: 10,
-                borderWidth: 4,
-                borderColor: '#0E0E0E',
               }}
             >
-              <Feather name="plus" size={32} color="#000" />
+              <Feather name="plus" size={32} color="#fff" />
             </View>
           ),
         }}

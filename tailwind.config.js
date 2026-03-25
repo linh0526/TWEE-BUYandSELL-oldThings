@@ -8,17 +8,17 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: "#F9F9F9",
-        secondary: "#FF7524",
-        "secondary-container": "#A04100",
-        background: "#0E0E0E",
-        surface: "#0E0E0E",
-        "surface-container-low": "#131313",
-        "surface-container": "#1A1A1A",
-        "surface-container-high": "#20201F",
-        "surface-bright": "#2C2C2C",
-        "on-surface-variant": "#ADAAAA",
-        outline: "rgba(224, 224, 224, 0.15)", // Ghost Border at 15%
+        primary: "#1A1A1A", // Dark text
+        secondary: "#FF7524", // Kinetic Orange
+        "secondary-container": "#FFF0E6", // Lighter orange for selection
+        background: "#FFFFFF",
+        surface: "#FAFAFA",
+        "surface-container-low": "#F5F5F5",
+        "surface-container": "#F2F2F2",
+        "surface-container-high": "#EBEBEB",
+        "surface-bright": "#E0E0E0",
+        "on-surface-variant": "#717171",
+        outline: "rgba(0, 0, 0, 0.05)",
       },
       borderRadius: {
         "3xl": "1.75rem",

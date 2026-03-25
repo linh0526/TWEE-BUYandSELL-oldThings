@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import TopNavbar from '@/components/TopNavbar';
 
 export default function NotificationsScreen() {
   const notifications = [
@@ -13,19 +14,9 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-background" edges={['top']}>
       {/* Search Header will be consistent across all tabs */}
-      <View className="px-6 py-4 flex-row items-center justify-between border-b border-white/5">
-        <View className="flex-1 bg-surface-container-high h-10 rounded-full px-4 flex-row items-center mr-4">
-          <Feather name="search" size={16} color="#FF7524" />
-          <Text className="ml-2 text-on-surface-variant font-bold text-[11px] uppercase tracking-wider">Tìm kiếm...</Text>
-        </View>
-        <View className="flex-row items-center space-x-4">
-          <TouchableOpacity><Feather name="settings" size={20} color="#F9F9F9" /></TouchableOpacity>
-          <TouchableOpacity className="ml-4"><Feather name="shopping-cart" size={20} color="#F9F9F9" /></TouchableOpacity>
-          <TouchableOpacity className="ml-4"><Feather name="message-square" size={20} color="#F9F9F9" /></TouchableOpacity>
-        </View>
-      </View>
+      <TopNavbar title="THÔNG BÁO" />
 
-      <ScrollView className="flex-1 p-6">
+      <ScrollView className="flex-1 p-6" contentContainerStyle={{ paddingBottom: 80 }}>
     
         {notifications.map((notif) => (
           <TouchableOpacity key={notif.id} className="bg-surface-container p-6 rounded-2xl mb-4 flex-row items-start">

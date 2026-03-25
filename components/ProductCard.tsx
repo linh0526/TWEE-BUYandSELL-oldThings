@@ -7,12 +7,11 @@ interface ProductCardProps {
   title: string;
   price: string;
   image: string | ImageSourcePropType;
-  condition: string;
   location?: string;
   onPress?: () => void;
 }
 
-export default function ProductCard({ title, price, image, condition, location = 'TP. Hồ Chí Minh', onPress }: ProductCardProps) {
+const ProductCard = ({ title, price, image, location = 'TP. Hồ Chí Minh', onPress }: ProductCardProps) => {
   return (
     <TouchableOpacity 
       activeOpacity={0.8}
@@ -36,7 +35,6 @@ export default function ProductCard({ title, price, image, condition, location =
       </View>
       
       <View className="p-3">
-        <Text className="text-on-surface-variant text-[8px] font-bold uppercase tracking-[0.1em] mb-1">Authenticated</Text>
         <Text className="text-primary font-black text-sm mb-1 leading-tight tracking-tight" numberOfLines={2}>
           {title}
         </Text>
@@ -50,3 +48,5 @@ export default function ProductCard({ title, price, image, condition, location =
     </TouchableOpacity>
   );
 }
+
+export default ProductCard;

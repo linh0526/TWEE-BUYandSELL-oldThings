@@ -11,14 +11,14 @@ export const unstable_settings = {
 };
 
 const CuratorTheme = {
-  ...DarkTheme,
+  ...DefaultTheme,
   colors: {
-    ...DarkTheme.colors,
+    ...DefaultTheme.colors,
     primary: '#FF7524',
-    background: '#0E0E0E',
-    card: '#0E0E0E',
-    text: '#F9F9F9',
-    border: 'rgba(255, 255, 255, 0.1)',
+    background: '#FFFFFF',
+    card: '#FFFFFF',
+    text: '#1A1A1A',
+    border: 'rgba(0, 0, 0, 0.05)',
     notification: '#FF7524',
   },
 };
@@ -30,7 +30,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
     </ThemeProvider>
   );
 }
