@@ -2,11 +2,9 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { View, Platform } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const activeColor = '#FF7524'; // Kinetic Orange
 
@@ -17,9 +15,9 @@ export default function TabLayout() {
         tabBarInactiveTintColor: '#999999',
         headerShown: false,
         tabBarStyle: {
-           height: Platform.OS === 'ios' ? 60 + insets.bottom : 72,
-           paddingBottom: Platform.OS === 'ios' ? insets.bottom : 12,
-           paddingTop: 12,
+           height: Platform.OS === 'ios' ? 88 : 70,
+           paddingBottom: Platform.OS === 'ios' ? 30 : 15,
+           paddingTop: 10,
            borderTopWidth: 1,
            borderTopColor: '#F0F0F0',
            backgroundColor: '#FFFFFF',
@@ -34,6 +32,7 @@ export default function TabLayout() {
            fontWeight: '900',
            textTransform: 'uppercase',
            letterSpacing: 1.2,
+           marginBottom: Platform.OS === 'ios' ? 0 : 2,
         }
       }}>
       <Tabs.Screen
