@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
+import { CartProvider } from '../context/CartContext';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -23,12 +24,15 @@ const CuratorTheme = {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider value={CuratorTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="search" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="dark" />
-    </ThemeProvider>
+    <CartProvider>
+      <ThemeProvider value={CuratorTheme}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="search" options={{ headerShown: false }} />
+          <Stack.Screen name="cart" options={{ headerShown: false }} />
+        </Stack>
+        <StatusBar style="dark" />
+      </ThemeProvider>
+    </CartProvider>
   );
 }
