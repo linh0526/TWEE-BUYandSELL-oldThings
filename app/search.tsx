@@ -12,9 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import ProductCard from '@/components/ProductCard';
-import { FLAT_CATEGORIES } from '@/constants/data_cate';
 const { height } = Dimensions.get('window');
-import { getChildrenIds, getRootIds } from '@/utils/CategoryHelper';
+import { useCategoryStore } from '@/lib/store/useCategoryStore';
 
 export const MOCK_PRODUCTS = [
   // --- SÁCH (sach) ---
@@ -78,6 +77,8 @@ export default function SearchScreen() {
   const [isSortVisible, setIsSortVisible] = React.useState(false);
   const [isFocused, setIsFocused] = React.useState(false);
   
+  const { getCategoryById, getRootIds, getChildrenIds } = useCategoryStore();
+
   // Category Hierarchy State
   const [categoryPath, setCategoryPath] = React.useState<{id: string, name: string, type: 'root' | 'cat' | 'sub'}[]>([
     { id: 'all', name: 'Tất cả', type: 'root' }
@@ -85,23 +86,26 @@ export default function SearchScreen() {
 
 // Sửa useEffect đồng bộ category theo ID
 React.useEffect(() => {
-  if (initialCategory && (FLAT_CATEGORIES as any)[initialCategory]) {
-    const item = (FLAT_CATEGORIES as any)[initialCategory];
-    
-    // Tìm tất cả các cha của item này để dựng lại Breadcrumb
-    const pathIds = item.path.split('/'); 
-    
-    const newPath = [
-      { id: 'all', name: 'Tất cả', type: 'root' },
-      ...pathIds.map((id: string) => ({
-        id: id,
-        name: (FLAT_CATEGORIES as any)[id].name,
-        type: (FLAT_CATEGORIES as any)[id].level === 0 ? 'cat' : 'sub'
-      }))
-    ];
-    
-    setCategoryPath(newPath as any);
-    setSelectedCategory(null); 
+  if (initialCategory) {
+    const item = getCategoryById(initialCategory);
+    if (item) {
+      const pathIds = item.path.split('/'); 
+      
+      const newPath = [
+        { id: 'all', name: 'Tất cả', type: 'root' },
+        ...pathIds.map((id: string) => {
+          const cat = getCategoryById(id);
+          return {
+            id: id,
+            name: cat?.name || '',
+            type: cat?.level === 0 ? 'cat' : 'sub'
+          };
+        })
+      ];
+      
+      setCategoryPath(newPath as any);
+      setSelectedCategory(null); 
+    }
   }
 }, [initialCategory]);
 
@@ -112,12 +116,12 @@ React.useEffect(() => {
     const targetIds = currentId === 'all' ? getRootIds() : getChildrenIds(currentId);
 
     return targetIds.map(id => {
-      const item = (FLAT_CATEGORIES as any)[id];
+      const item = getCategoryById(id);
       const childIds = getChildrenIds(id);
       return {
         id: id,
-        name: item.name,
-        type: item.level === 0 ? 'cat' : 'sub',
+        name: item?.name || 'Unknown',
+        type: item?.level === 0 ? 'cat' : 'sub',
         hasChildren: childIds.length > 0
       };
     });
@@ -151,7 +155,7 @@ React.useEffect(() => {
         let matchCategory = true;
 
         if (currentCategory.id !== 'all') {
-          const item = (FLAT_CATEGORIES as any)[p.categoryId];
+          const item = getCategoryById(p.categoryId);
           const productPath = item ? item.path : '';
           matchCategory = productPath.includes(currentCategory.id);
         }

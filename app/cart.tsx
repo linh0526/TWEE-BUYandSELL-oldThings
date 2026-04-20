@@ -3,8 +3,6 @@ import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Image, Modal, F
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useCart } from '../context/CartContext';
-import { PRODUCT_LIST } from '../constants/data_cate';
-
 export default function CartScreen() {
   const router = useRouter();
   const { cartItems, setCartItems, removeFromCart } = useCart();
@@ -13,19 +11,10 @@ export default function CartScreen() {
   const [similarProducts, setSimilarProducts] = useState<any[]>([]);
 
   const handleFindSimilar = (currentItem: any) => {
-      if (!PRODUCT_LIST) {
-        setSimilarProducts([]);
-        setShowSimilar(true);
-        return;
-      }
-
-      const results = PRODUCT_LIST.filter((p: any) =>
-        p.category === currentItem.category && p.id !== currentItem.id
-      );
-
-      setSimilarProducts(results);
-      setShowSimilar(true);
-    };
+    // Temporarily disabled until real product fetching is implemented
+    setSimilarProducts([]);
+    setShowSimilar(true);
+  };
 
   const toggleEditShop = (shopName: string) => {
     setEditingShops(prev =>

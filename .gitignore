@@ -46,3 +46,5 @@ app-example
 .vscode
 
 *.md
+
+package-lock.json

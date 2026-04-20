@@ -4,6 +4,9 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
 import { CartProvider } from '../context/CartContext';
+import { AuthProvider } from '../context/AuthContext';
+import { useCategoryStore } from '@/lib/store/useCategoryStore';
+import React from 'react';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -22,17 +25,28 @@ const CuratorTheme = {
   },
 };
 
-export default function RootLayout() {
+function RootLayout() {
+  const fetchCategories = useCategoryStore(state => state.fetchCategories);
+
+  React.useEffect(() => {
+    fetchCategories();
+  }, []);
+
   return (
-    <CartProvider>
-      <ThemeProvider value={CuratorTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="search" options={{ headerShown: false }} />
-          <Stack.Screen name="cart" options={{ headerShown: false }} />
-        </Stack>
-        <StatusBar style="dark" />
-      </ThemeProvider>
-    </CartProvider>
+    <AuthProvider>
+      <CartProvider>
+        <ThemeProvider value={CuratorTheme}>
+          <Stack>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="search" options={{ headerShown: false }} />
+            <Stack.Screen name="cart" options={{ headerShown: false }} />
+          </Stack>
+          <StatusBar style="dark" />
+        </ThemeProvider>
+      </CartProvider>
+    </AuthProvider>
   );
 }
+
+export default RootLayout;

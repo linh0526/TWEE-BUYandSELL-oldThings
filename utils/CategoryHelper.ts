@@ -1,27 +1,21 @@
-import { FLAT_CATEGORIES, CategoryDetails } from '../constants/data_cate';
+import { useCategoryStore } from '../lib/store/useCategoryStore';
 
 export const getRootIds = (): string[] => {
-  return Object.entries(FLAT_CATEGORIES)
-    .filter(([_, details]) => (details as CategoryDetails).level === 0)
-    .map(([id]) => id);
+  return useCategoryStore.getState().getRootIds();
 };
 
 export const getChildrenIds = (parentId: string): string[] => {
-  return Object.entries(FLAT_CATEGORIES)
-    .filter(([_, details]) => (details as CategoryDetails).parent === parentId)
-    .map(([id]) => id);
+  return useCategoryStore.getState().getChildrenIds(parentId);
 };
 
 export const getCategoryPath = (id: string): string => {
+  const categories = useCategoryStore.getState().categories;
   const path: string[] = [];
   let currentId: string | null = id;
   
-  // Dùng "as any" hoặc "keyof typeof" để vượt qua kiểm tra index
-  const DATA = FLAT_CATEGORIES as Record<string, CategoryDetails>;
-
-  while (currentId && DATA[currentId]) {
+  while (currentId && categories[currentId]) {
     path.unshift(currentId);
-    currentId = DATA[currentId].parent;
+    currentId = categories[currentId].parent;
   }
   return path.join('/');
-};
+};
