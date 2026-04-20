@@ -1,85 +1,144 @@
--- Tạo bảng danh mục chính (Categories)
-CREATE TABLE categories (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL UNIQUE,
+-- Cấu trúc danh mục và sản phẩm cho Twee Marketplace
+
+-- 1. Bảng danh mục chính (Categories)
+CREATE TABLE IF NOT EXISTS categories (
+  id character varying NOT NULL,
+  name character varying NOT NULL,
+  image_url text,
+  display_order integer DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  display_order INT DEFAULT 0
+  CONSTRAINT categories_pkey PRIMARY KEY (id)
 );
 
--- Tạo bảng danh mục con (Subcategories)
-CREATE TABLE subcategories (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  category_id UUID REFERENCES categories(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
+-- 2. Bảng danh mục con (Subcategories)
+CREATE TABLE IF NOT EXISTS subcategories (
+  id character varying NOT NULL,
+  category_id character varying REFERENCES categories(id) ON DELETE CASCADE,
+  name character varying NOT NULL,
+  image_url text,
+  display_order integer DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  display_order INT DEFAULT 0,
-  UNIQUE(category_id, name)
+  CONSTRAINT subcategories_pkey PRIMARY KEY (id)
+);
+
+-- 3. Bảng mục chi tiết (Sub_items)
+CREATE TABLE IF NOT EXISTS sub_items (
+  id character varying NOT NULL,
+  subcategory_id character varying REFERENCES subcategories(id) ON DELETE CASCADE,
+  name character varying NOT NULL,
+  image_url text,
+  display_order integer DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT sub_items_pkey PRIMARY KEY (id)
+);
+
+-- 3. Bảng Profiles (Dựa trên Auth.Users)
+CREATE TABLE IF NOT EXISTS profiles (
+  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+  email TEXT UNIQUE,
+  display_name TEXT,
+  full_name TEXT,
+  avatar_url TEXT,
+  phone_number TEXT,
+  phone_verified BOOLEAN DEFAULT FALSE,
+  trust_score INT DEFAULT 0, -- Điểm tin cậy bắt đầu từ 0
+  is_admin BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Bảng Sản phẩm (Products)
+CREATE TABLE IF NOT EXISTS products (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  seller_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  category_id character varying REFERENCES categories(id),
+  subcategory_id character varying REFERENCES subcategories(id),
+  sub_item_id character varying REFERENCES sub_items(id),
+  title TEXT NOT NULL,
+  description TEXT,
+  price DECIMAL NOT NULL,
+  images TEXT[], -- Mảng các URL ảnh từ storage
+  condition TEXT, -- 'Mới', 'Như mới', 'Tốt', 'Trung bình', 'Kém'
+  quantity INTEGER DEFAULT 1,
+  location TEXT,
+  detailed_address TEXT,
+  shipping_fee_type TEXT,
+  weight DECIMAL, -- Cân nặng (gram)
+  length DECIMAL, -- Dài (cm)
+  width DECIMAL, -- Rộng (cm)
+  height DECIMAL, -- Cao (cm)
+  status TEXT DEFAULT 'pending', -- 'pending', 'approved', 'rejected', 'sold'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 5. Bảng đơn hàng (Orders)
+CREATE TABLE IF NOT EXISTS orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  buyer_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  seller_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES products(id),
+  quantity INT DEFAULT 1,
+  total_price DECIMAL NOT NULL,
+  status TEXT DEFAULT 'pending', -- 'pending', 'paid', 'shipped', 'completed', 'cancelled'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. Bảng thông báo (Notifications)
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  content TEXT,
+  type TEXT, -- 'order', 'system', 'approval'
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Kích hoạt RLS (Bảo mật mức hàng)
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subcategories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sub_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- Tạo chính sách cho phép đọc công khai (Read-only)
-CREATE POLICY "Cho phép đọc công khai danh mục" ON categories FOR SELECT USING (true);
-CREATE POLICY "Cho phép đọc công khai danh mục con" ON subcategories FOR SELECT USING (true);
+-- CÁC CHÍNH SÁCH RLS CƠ BẢN
+-- Công khai: Danh mục, Danh mục con, Sản phẩm đã duyệt
+CREATE POLICY "Public read categories" ON categories FOR SELECT USING (true);
+CREATE POLICY "Public read subcategories" ON subcategories FOR SELECT USING (true);
+CREATE POLICY "Public read sub_items" ON sub_items FOR SELECT USING (true);
+CREATE POLICY "Public read approved products" ON products FOR SELECT USING (status = 'approved');
 
--- Dữ liệu danh mục chính
-INSERT INTO categories (name, display_order) VALUES
-('Sách', 1),
-('Đồ cho nam', 2),
-('Thời trang nữ', 3),
-('Đồ làm đẹp', 4),
-('Xe', 5),
-('Đồ văn phòng', 6),
-('Thiết thiết bị điện tử', 7),
-('Khác', 99);
+-- Cá nhân: Profile của chính mình
+CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
 
--- Dữ liệu danh mục con (kèm mục "Khác" cho mỗi loại)
--- Sách
-INSERT INTO subcategories (category_id, name) VALUES 
-((SELECT id FROM categories WHERE name = 'Sách'), 'Sách Giáo Khoa'),
-((SELECT id FROM categories WHERE name = 'Sách'), 'Truyện Tranh'),
-((SELECT id FROM categories WHERE name = 'Sách'), 'Sách Kỹ Năng'),
-((SELECT id FROM categories WHERE name = 'Sách'), 'Khác');
+-- Sản phẩm: Seller có thể quản lý sản phẩm của mình
+CREATE POLICY "Sellers can manage own products" ON products FOR ALL USING (auth.uid() = seller_id);
 
--- Đồ cho nam
-INSERT INTO subcategories (category_id, name) VALUES 
-((SELECT id FROM categories WHERE name = 'Đồ cho nam'), 'Áo & Quần Nam'),
-((SELECT id FROM categories WHERE name = 'Đồ cho nam'), 'Phụ kiện Nam'),
-((SELECT id FROM categories WHERE name = 'Đồ cho nam'), 'Giày dép Nam'),
-((SELECT id FROM categories WHERE name = 'Đồ cho nam'), 'Khác');
+-- TRIGGERS
+-- Tự động tạo profile khi đăng ký mới
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, display_name, full_name, trust_score)
+  VALUES (
+    new.id, 
+    new.email, 
+    new.raw_user_meta_data->>'display_name',
+    new.raw_user_meta_data->>'full_name',
+    (new.raw_user_meta_data->>'trust_score')::int
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Thời trang nữ
-INSERT INTO subcategories (category_id, name) VALUES 
-((SELECT id FROM categories WHERE name = 'Thời trang nữ'), 'Váy & Đầm'),
-((SELECT id FROM categories WHERE name = 'Thời trang nữ'), 'Phụ kiện Nữ'),
-((SELECT id FROM categories WHERE name = 'Thời trang nữ'), 'Túi xách'),
-((SELECT id FROM categories WHERE name = 'Thời trang nữ'), 'Khác');
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- Đồ làm đẹp
-INSERT INTO subcategories (category_id, name) VALUES 
-((SELECT id FROM categories WHERE name = 'Đồ làm đẹp'), 'Chăm sóc da'),
-((SELECT id FROM categories WHERE name = 'Đồ làm đẹp'), 'Trang điểm'),
-((SELECT id FROM categories WHERE name = 'Đồ làm đẹp'), 'Dụng cụ làm đẹp'),
-((SELECT id FROM categories WHERE name = 'Đồ làm đẹp'), 'Khác');
-
--- Xe
-INSERT INTO subcategories (category_id, name) VALUES 
-((SELECT id FROM categories WHERE name = 'Xe'), 'Xe máy'),
-((SELECT id FROM categories WHERE name = 'Xe'), 'Xe đạp'),
-((SELECT id FROM categories WHERE name = 'Xe'), 'Ô tô'),
-((SELECT id FROM categories WHERE name = 'Xe'), 'Khác');
-
--- Đồ văn phòng
-INSERT INTO subcategories (category_id, name) VALUES 
-((SELECT id FROM categories WHERE name = 'Đồ văn phòng'), 'Dụng cụ học tập'),
-((SELECT id FROM categories WHERE name = 'Đồ văn phòng'), 'Bàn ghế văn phòng'),
-((SELECT id FROM categories WHERE name = 'Đồ văn phòng'), 'Khác');
-
--- Thiết bị điện tử
-INSERT INTO subcategories (category_id, name) VALUES 
-((SELECT id FROM categories WHERE name = 'Thiết thiết bị điện tử'), 'Điện thoại'),
-((SELECT id FROM categories WHERE name = 'Thiết thiết bị điện tử'), 'Laptop'),
-((SELECT id FROM categories WHERE name = 'Thiết thiết bị điện tử'), 'Linh kiện/Phụ kiện'),
-((SELECT id FROM categories WHERE name = 'Thiết thiết bị điện tử'), 'Khác');
+-- DỮ LIỆU MẪU (Bổ sung image_url cho categories)
+-- DỮ LIỆU MẪU

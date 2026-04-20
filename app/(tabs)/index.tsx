@@ -4,21 +4,17 @@ import { Feather } from '@expo/vector-icons';
 import ProductCard from '@/components/ProductCard';
 import { useRouter } from 'expo-router';
 import TopNavbar from '@/components/TopNavbar';
-import { FLAT_CATEGORIES } from '@/constants/data_cate';
 import { MOCK_PRODUCTS } from '@/app/search';
 import { useCart } from '../../context/CartContext';
-
-const rootCategories = Object.entries(FLAT_CATEGORIES)
-  .filter(([_, details]: [string, any]) => details.parent === null)
-  .map(([id, details]: [string, any]) => ({
-    id,
-    ...details,
-  }))
+import { useCategoryStore } from '@/lib/store/useCategoryStore';
+import React from 'react';
 
 const HomeScreen = () => {
   const router = useRouter();
-
   const { addToCart } = useCart();
+  const { getRootCategories, categories } = useCategoryStore();
+
+  const rootCategories = React.useMemo(() => getRootCategories(), [categories]);
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>

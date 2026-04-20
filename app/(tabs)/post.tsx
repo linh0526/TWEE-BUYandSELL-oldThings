@@ -1,263 +1,220 @@
-//tsx
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, Platform, Modal } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
+import { useCategoryStore } from '@/lib/store/useCategoryStore';
 import TopNavbar from '@/components/TopNavbar';
 import ImagePickerBox from '@/components/ImagePickerBox';
-import { supabase } from '@/lib/supabase';
-import { FLAT_CATEGORIES } from '@/constants/data_cate';
+
+const CONDITIONS = [
+  { label: 'Mới', desc: 'Hàng mới, chưa qua sử dụng' },
+  { label: 'Như mới', desc: 'Sử dụng lướt, ngoại hình đẹp' },
+  { label: 'Tốt', desc: 'Hoạt động tốt, trầy xước nhẹ' },
+  { label: 'Trung bình', desc: 'Cũ, đầy đủ chức năng' },
+  { label: 'Kém', desc: 'Nhiều lỗi hoặc hư hỏng' }
+];
 
 export default function PostScreen() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const { getRootCategories, getChildren } = useCategoryStore();
+
+  const [loading, setLoading] = useState(false);
+
+  // Form States
   const [images, setImages] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  // States cho Auth
-  const [user, setUser] = useState<any>(null);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
   const [categoryId, setCategoryId] = useState('');
+  const [subcategoryId, setSubcategoryId] = useState('');
+  const [subItemId, setSubItemId] = useState('');
   const [condition, setCondition] = useState('Như mới');
-  const [location, setLocation] = useState('Hồ Chí Minh');
   const [quantity, setQuantity] = useState('1');
+  const [location, setLocation] = useState('Hồ Chí Minh');
+  const [detailedAddress, setDetailedAddress] = useState('');
+  const [weight, setWeight] = useState('');
+  const [shippingFeeType, setShippingFeeType] = useState('buyer_pays');
 
-  // Kiểm tra xem đã có session chưa khi vào trang
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    checkUser();
-  }, []);
+  const categories = getRootCategories();
+  const subcategories = categoryId ? getChildren(categoryId) : [];
 
-  const handleLogin = async () => {
-    if (!email || !password) return;
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) throw error;
-      
-      setUser(data.user);
-      setShowLoginModal(false);
-      const msg = 'Đăng nhập thành công! Bạn có thể đăng tin ngay.';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Thành công', msg);
-    } catch (error: any) {
-      Platform.OS === 'web' ? window.alert(error.message) : Alert.alert('Lỗi đăng nhập', error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const uploadImagesToSupabase = async (uris: string[]) => {
-    const publicUrls = [];
+  const uploadImages = async (uris: string[]) => {
+    const urls = [];
     for (const uri of uris) {
       try {
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+        const fileName = `${user?.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
         const response = await fetch(uri);
         const blob = await response.blob();
-
-        const { data, error } = await supabase.storage
-          .from('products')
-          .upload(fileName, blob, { contentType: 'image/jpeg', upsert: false });
-
+        const { data, error } = await supabase.storage.from('products').upload(fileName, blob);
         if (error) throw error;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('products')
-          .getPublicUrl(data.path);
-
-        publicUrls.push(publicUrl);
+        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(data.path);
+        urls.push(publicUrl);
       } catch (err) {
         console.error("Upload error:", err);
       }
     }
-    return publicUrls;
+    return urls;
   };
 
-  const handleSubmit = async () => {
-    // 1. Kiểm tra đăng nhập
+  const handlePost = async () => {
     if (!user) {
-      setShowLoginModal(true);
+      const msg = 'Bạn cần đăng nhập để đăng tin';
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Lỗi', msg);
       return;
     }
-
-    // 2. Validate dữ liệu
-    if (images.length === 0 || !title.trim() || !price.trim() || !categoryId) {
-      const msg = 'Vui lòng điền đủ Tiêu đề, Giá, Danh mục và ít nhất 1 hình ảnh nhé!';
+    if (!title || !price || !categoryId) {
+      const msg = 'Vui lòng điền đủ Tiêu đề, Giá và Danh mục';
       Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Thiếu thông tin', msg);
       return;
     }
 
     setLoading(true);
     try {
-      // 3. Upload ảnh
-      const imageUrls = await uploadImagesToSupabase(images);
+      const imageUrls = await uploadImages(images);
+      const { error } = await supabase.from('products').insert({
+        seller_id: user.id,
+        title,
+        price: parseFloat(price.replace(/[^0-9]/g, '')),
+        description,
+        category_id: categoryId,
+        subcategory_id: subcategoryId || null,
+        sub_item_id: subItemId || null,
+        condition,
+        quantity: parseInt(quantity),
+        location,
+        detailed_address: detailedAddress,
+        images: imageUrls,
+        weight: weight ? parseFloat(weight) : null,
+        shipping_fee_type: shippingFeeType,
+        status: 'active'
+      });
 
-      // 4. Lưu vào Database
-      const { error: insertError } = await supabase
-        .from('products')
-        .insert({
-          seller_id: user.id,
-          title: title,
-          description: description,
-          price: parseFloat(price.replace(/[^0-9]/g, '')),
-          category_id: categoryId,
-          images: imageUrls,
-          condition: condition,
-          location: location,
-          quantity: parseInt(quantity),
-          status: 'active'
-        });
-
-      if (insertError) throw insertError;
-
-      const successMsg = 'Sản phẩm của bạn đã được đăng niêm yết thành công! 🎉';
-      Platform.OS === 'web' ? window.alert(successMsg) : Alert.alert('Thành công!', successMsg);
-
-      setImages([]); setTitle(''); setPrice(''); setDescription(''); setCategoryId('');
+      if (error) throw error;
+      const successMsg = 'Đăng tin thành công! 🎉';
+      Platform.OS === 'web' ? window.alert(successMsg) : Alert.alert('Thành công', successMsg);
+      router.push('/(tabs)');
     } catch (error: any) {
-      const errMsg = error.message || "Không thể đăng tin lúc này";
-      Platform.OS === 'web' ? window.alert(errMsg) : Alert.alert('Lỗi rồi', errMsg);
+      Platform.OS === 'web' ? window.alert(error.message) : Alert.alert('Lỗi', error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-background" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-white" edges={['top']}>
       <TopNavbar />
+      <ScrollView className="flex-1 p-6" contentContainerStyle={{ paddingBottom: 100 }}>
 
-      {/* Modal Đăng nhập */}
-      <Modal visible={showLoginModal} transparent animationType="slide">
-        <View className="flex-1 bg-black/60 justify-center p-6">
-          <View className="bg-white p-8 rounded-3xl space-y-4">
-            <View className="flex-row justify-between items-center mb-4">
-               <Text className="text-xl font-black">ĐĂNG NHẬP</Text>
-               <TouchableOpacity onPress={() => setShowLoginModal(false)}>
-                  <Feather name="x" size={24} color="black" />
-               </TouchableOpacity>
-            </View>
-            
-            <TextInput 
-              placeholder="Email (test@gmail.com)" 
-              value={email}
-              onChangeText={setEmail}
-              className="bg-gray-100 p-4 rounded-xl font-bold"
-            />
-            <TextInput 
-              placeholder="Mật khẩu" 
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-              className="bg-gray-100 p-4 rounded-xl font-bold"
-            />
-            
-            <TouchableOpacity 
-              onPress={handleLogin}
-              disabled={loading}
-              className="bg-secondary p-5 rounded-xl items-center mt-4 shadow-lg shadow-secondary/40"
-            >
-              <Text className="text-white font-black">{loading ? 'ĐANG XỬ LÝ...' : 'ĐĂNG NHẬP NGAY'}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      <ScrollView className="flex-1 p-6" contentContainerStyle={{ paddingBottom: 120 }}>
         <ImagePickerBox
           images={images}
           onAddImage={(uri) => setImages([...images, uri])}
           onRemoveImage={(idx) => setImages(images.filter((_, i) => i !== idx))}
         />
 
-        {/* ... (Các phần UI input giữ nguyên như cũ) ... */}
         <View className="space-y-6">
-          {/* Tiêu đề */}
+          {/* Thông tin cơ bản */}
           <View className="mb-4">
-            <Text className="text-[10px] font-bold text-on-surface-variant mb-2 uppercase tracking-widest">Tiêu đề niêm yết</Text>
-            <TextInput
-              value={title}
-              onChangeText={setTitle}
-              placeholder="Ví dụ: iPhone 15 Pro Max..."
-              className="bg-surface-container-high p-4 rounded-xl font-bold text-primary"
-            />
+            <Text className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em]">Tiêu đề niêm yết *</Text>
+            <TextInput value={title} onChangeText={setTitle} className="bg-gray-50 p-5 rounded-xl font-bold" placeholder="Nhập tên sản phẩm..." />
           </View>
 
-          {/* Giá tiền */}
-          <View className="mb-4">
-             <Text className="text-[10px] font-bold text-on-surface-variant mb-2 uppercase tracking-widest">Giá bán</Text>
-             <View className="flex-row items-center bg-surface-container-high rounded-xl px-4">
-               <TextInput
-                 value={price}
-                 onChangeText={setPrice}
-                 placeholder="0"
-                 keyboardType="numeric"
-                 className="flex-1 py-4 font-black text-primary text-lg"
-               />
-               <Text className="text-secondary font-black">VNĐ</Text>
-             </View>
+          <View className="flex-row mb-4" style={{ gap: 16 }}>
+            <View className="flex-1">
+              <Text className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em]">Giá bán (VNĐ) *</Text>
+              <TextInput value={price} onChangeText={setPrice} keyboardType="numeric" className="bg-gray-50 p-5 rounded-xl font-black text-secondary" placeholder="0" />
+            </View>
+            <View className="w-24">
+              <Text className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em]">Số lượng</Text>
+              <TextInput value={quantity} onChangeText={setQuantity} keyboardType="numeric" className="bg-gray-50 p-5 rounded-xl font-black text-center" />
+            </View>
           </View>
 
-          {/* Danh mục */}
+          {/* Danh mục phân cấp */}
           <View className="mb-4">
-            <Text className="text-[10px] font-bold text-on-surface-variant mb-2 uppercase tracking-widest">Danh mục</Text>
+            <Text className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em]">Danh mục chính *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-              {Object.entries(FLAT_CATEGORIES)
-                .filter(([_, cat]) => (cat as any).level === 0)
-                .map(([id, cat]) => (
+              {categories.map(cat => (
                 <TouchableOpacity
-                  key={id}
-                  onPress={() => setCategoryId(id)}
-                  className={`mr-2 px-4 py-2 rounded-full border ${categoryId === id ? 'bg-secondary border-secondary' : 'bg-surface border-outline'}`}
+                  key={cat.id}
+                  onPress={() => { setCategoryId(cat.id); setSubcategoryId(''); }}
+                  className={`mr-2 px-4 py-2 rounded-full border ${categoryId === cat.id ? 'bg-secondary border-secondary' : 'bg-white border-gray-200'}`}
                 >
-                  <Text className={`text-xs font-bold ${categoryId === id ? 'text-white' : 'text-primary'}`}>{(cat as any).name}</Text>
+                  <Text className={`text-xs font-bold ${categoryId === cat.id ? 'text-white' : 'text-gray-600'}`}>{cat.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
 
-          {/* Tình trạng & Vị trí */}
-          <View className="flex-row mb-4" style={{ gap: 16 }}>
-            <View className="flex-1">
-              <Text className="text-[10px] font-bold text-on-surface-variant mb-2 uppercase tracking-widest">Tình trạng</Text>
-              <TextInput value={condition} onChangeText={setCondition} className="bg-surface-container-high p-4 rounded-xl font-bold text-primary" />
+          {categoryId && subcategories.length > 0 && (
+            <View className="mb-4">
+              <Text className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em]">Danh mục con</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
+                {subcategories.map(sub => (
+                  <TouchableOpacity
+                    key={sub.id}
+                    onPress={() => setSubcategoryId(sub.id)}
+                    className={`mr-2 px-4 py-2 rounded-full border ${subcategoryId === sub.id ? 'bg-secondary border-secondary' : 'bg-white border-gray-200'}`}
+                  >
+                    <Text className={`text-xs font-bold ${subcategoryId === sub.id ? 'text-white' : 'text-gray-600'}`}>{sub.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
-            <View className="flex-1">
-              <Text className="text-[10px] font-bold text-on-surface-variant mb-2 uppercase tracking-widest">Khu vực</Text>
-              <TextInput value={location} onChangeText={setLocation} className="bg-surface-container-high p-4 rounded-xl font-bold text-primary" />
+          )}
+
+          {/* Tình trạng sản phẩm */}
+          <View className="mb-4">
+            <Text className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-[0.2em]">Tình trạng sản phẩm</Text>
+            <View className="flex-row flex-wrap">
+              {CONDITIONS.map((item) => (
+                <TouchableOpacity
+                  key={item.label}
+                  onPress={() => setCondition(item.label)}
+                  className={`mr-2 mb-2 px-4 py-3 rounded-2xl border ${condition === item.label ? 'bg-secondary/10 border-secondary' : 'bg-gray-50 border-gray-100'}`}
+                >
+                  <Text className={`text-xs font-black uppercase ${condition === item.label ? 'text-secondary' : 'text-gray-500'}`}>{item.label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
-          {/* Mô tả */}
+          {/* Địa điểm */}
+          <View className="mb-4">
+            <Text className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em]">Khu vực & Địa chỉ chi tiết</Text>
+            <TextInput value={location} onChangeText={setLocation} className="bg-gray-50 p-5 rounded-xl font-bold mb-2" placeholder="Ví dụ: Hồ Chí Minh" />
+            <TextInput value={detailedAddress} onChangeText={setDetailedAddress} className="bg-gray-50 p-5 rounded-xl font-bold" placeholder="Số nhà, tên đường..." />
+          </View>
+
+          {/* Vận chuyển */}
+          <View className="mb-4">
+             <Text className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-[0.2em]">Vận chuyển (kg)</Text>
+             <View className="flex-row">
+                <TextInput value={weight} onChangeText={setWeight} keyboardType="numeric" placeholder="Khối lượng" className="flex-1 bg-gray-50 p-5 rounded-xl font-bold mr-2" />
+                <TouchableOpacity
+                  onPress={() => setShippingFeeType(shippingFeeType === 'buyer_pays' ? 'seller_pays' : 'buyer_pays')}
+                  className="flex-1 bg-gray-50 p-5 rounded-xl items-center justify-center border border-gray-100"
+                >
+                  <Text className="text-[10px] font-black uppercase text-secondary">
+                    {shippingFeeType === 'buyer_pays' ? 'Người mua trả phí' : 'Người bán trả phí'}
+                  </Text>
+                </TouchableOpacity>
+             </View>
+          </View>
+
           <View className="mb-8">
-            <Text className="text-[10px] font-bold text-on-surface-variant mb-2 uppercase tracking-widest">Mô tả chi tiết</Text>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Thông tin thêm về sản phẩm..."
-              multiline
-              className="bg-surface-container-high p-4 rounded-xl font-bold text-primary min-h-[100px]"
-              style={{ textAlignVertical: 'top' }}
-            />
+            <Text className="text-[10px] font-black text-gray-400 mb-2 uppercase tracking-[0.2em]">Mô tả chi tiết</Text>
+            <TextInput value={description} onChangeText={setDescription} multiline className="bg-gray-50 p-5 rounded-xl font-medium min-h-[140px]" placeholder="Thông tin thêm..." style={{ textAlignVertical: 'top' }} />
           </View>
         </View>
 
-        <TouchableOpacity
-          onPress={handleSubmit}
-          disabled={loading}
-          className={`p-5 rounded-xl items-center mt-4 mb-20 ${loading ? 'bg-gray-400' : 'bg-secondary'}`}
-        >
-          <Text className="text-[#3C1300] font-black text-lg uppercase">
-            {loading ? 'Đang xử lý...' : 'Niêm yết ngay'}
-          </Text>
+        <TouchableOpacity onPress={handlePost} disabled={loading} className={`p-6 rounded-xl items-center mb-20 ${loading ? 'bg-gray-200' : 'bg-secondary'}`}>
+          {loading ? <ActivityIndicator color="#3C1300" /> : <Text className="text-[#3C1300] font-black text-lg uppercase">Niêm yết ngay</Text>}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

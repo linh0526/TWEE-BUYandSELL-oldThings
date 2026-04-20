@@ -9,7 +9,8 @@
     "jsx": "react-jsx",
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "types": ["nativewind/types"]
   },
   "include": [
     "**/*.ts",

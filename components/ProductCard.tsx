@@ -26,8 +26,8 @@ const ProductCard = ({
   hideTitle, 
   hideLocation 
 }: ProductCardProps) => {
-  const displayImage = images && images.length > 0 ? images[0] : image;
-  const imageCount = images?.length || 0;
+  const displayImage = (Array.isArray(images) && images.length > 0) ? images[0] : image;
+  const imageCount = Array.isArray(images) ? images.length : 0;
 
   return (
     <TouchableOpacity 
@@ -38,9 +38,14 @@ const ProductCard = ({
       <View className="relative">
         <View style={{ aspectRatio: 1 }} className="overflow-hidden rounded-xl">
              <Image 
-                source={displayImage} 
+                source={{ 
+                  uri: typeof displayImage === 'string' && displayImage.startsWith('http') 
+                    ? displayImage 
+                    : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800' 
+                }} 
                 style={{ width: '100%', height: '100%' }}
                 contentFit="cover"
+                transition={200}
             />
         </View>
         

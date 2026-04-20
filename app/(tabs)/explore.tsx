@@ -6,10 +6,10 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, useRouter } from 'expo-router';
 import TopNavbar from '../../components/TopNavbar';
-import { FLAT_CATEGORIES } from '../../constants/data_cate';
-import { getRootIds, getChildrenIds } from '../../utils/CategoryHelper';
+import { useCategoryStore } from '@/lib/store/useCategoryStore';
 
 export default function ExploreScreen() {
+  const { categories, getRootIds, getChildrenIds } = useCategoryStore();
   const [selectedCatId, setSelectedCatId] = React.useState<string | null>(null);
   const [selectedSubId, setSelectedSubId] = React.useState<string | null>(null);
 
@@ -17,22 +17,23 @@ export default function ExploreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // 1. Lấy dữ liệu cần thiết từ Helper và Object
-  const rootIds = React.useMemo(() => getRootIds(), []);
+  // 1. Lấy dữ liệu cần thiết từ Store
+  const rootIds = React.useMemo(() => getRootIds(), [categories]);
   
-  const selectedCategory = selectedCatId ? (FLAT_CATEGORIES as any)[selectedCatId] : null;
-  const selectedSubCategory = selectedSubId ? (FLAT_CATEGORIES as any)[selectedSubId] : null;
+  const selectedCategory = selectedCatId ? categories[selectedCatId] : null;
+  const selectedSubCategory = selectedSubId ? categories[selectedSubId] : null;
 
   // Xác định danh sách ID hiển thị ở lưới bên phải
   const displayIds = React.useMemo(() => {
     if (selectedSubId) return getChildrenIds(selectedSubId);
     if (selectedCatId) return getChildrenIds(selectedCatId);
     return rootIds;
-  }, [selectedCatId, selectedSubId, rootIds]);
+  }, [selectedCatId, selectedSubId, rootIds, categories]);
 
   const displayTitle = selectedSubId 
     ? selectedSubCategory?.name 
     : (selectedCatId ? selectedCategory?.name : 'DANH MỤC');
+
 
   // 2. Các hàm xử lý sự kiện
   const handleSetCategory = (id: string | null) => {
@@ -67,7 +68,7 @@ export default function ExploreScreen() {
           <View className="w-20 border-r border-black/5 bg-gray-50/50">
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
               {rootIds.map((id) => {
-                const cat = (FLAT_CATEGORIES as any)[id];
+                const cat = categories[id];
                 const isActive = selectedCatId === id;
                 return (
                   <TouchableOpacity
@@ -76,7 +77,7 @@ export default function ExploreScreen() {
                     className={`items-center py-4 px-1 ${isActive ? 'bg-white' : ''}`}
                   >
                     <View className={`w-12 h-12 rounded-full overflow-hidden mb-1 ${isActive ? 'border-2 border-secondary' : 'border border-black/5'}`}>
-                      <Image source={{ uri: cat.image_url }} className="w-full h-full" resizeMode="cover" />
+                      <Image source={{ uri: cat.image_url ?? undefined }} className="w-full h-full" resizeMode="cover" />
                     </View>
                     <Text className={`text-[8px] font-black uppercase text-center ${isActive ? 'text-secondary' : 'text-primary/40'}`} numberOfLines={2}>
                       {cat.name}
@@ -100,7 +101,7 @@ export default function ExploreScreen() {
 
               <View className="flex-row flex-wrap">
                 {displayIds.map((id) => {
-                  const item = (FLAT_CATEGORIES as any)[id];
+                  const item = categories[id];
                   const childIds = getChildrenIds(id);
                   const hasSubItems = childIds.length > 0;
 
@@ -124,7 +125,7 @@ export default function ExploreScreen() {
                       >
                         <View className="w-full aspect-square rounded-2xl overflow-hidden mb-1.5 shadow-sm bg-gray-50">
                             {/* Card ảnh */}
-                          <Image source={{ uri: item.image_url || selectedCategory?.image_url }} className="w-full h-full" resizeMode="cover" />
+                          <Image source={{ uri: item.image_url ?? selectedCategory?.image_url ?? undefined }} className="w-full h-full" resizeMode="cover" />
                             {/* icon arrow nếu có subitems*/}
                           {hasSubItems && (
                             <View className="absolute bottom-2 right-2 bg-black/40 p-1 rounded-full z-10">
@@ -154,12 +155,12 @@ export default function ExploreScreen() {
           <View className="px-6 py-8">
             <View className="flex-row flex-wrap">
               {rootIds.map((id) => {
-                const cat = (FLAT_CATEGORIES as any)[id];
+                const cat = categories[id];
                 return (
                   <View key={id} style={{ width: '33.33%', padding: 4 }}>
                     <TouchableOpacity activeOpacity={0.8} onPress={() => handleSetCategory(id)} className="mb-4">
                       <View className="w-full rounded-2xl overflow-hidden mb-2 bg-white border border-black/5" style={{ height: 100 }}>
-                        <Image source={{ uri: cat.image_url }} className="w-full h-full" resizeMode="cover" />
+                        <Image source={{ uri: cat.image_url ?? undefined }} className="w-full h-full" resizeMode="cover" />
                       </View>
                       <Text className="text-[9px] font-black uppercase text-center text-primary tracking-widest">{cat.name}</Text>
                     </TouchableOpacity>
