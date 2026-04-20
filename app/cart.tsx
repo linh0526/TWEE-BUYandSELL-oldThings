@@ -48,7 +48,17 @@ export default function CartScreen() {
       prev.map((item: any) => {
         if (item.id === id) {
           const newQty = item.qty + delta;
-          return { ...item, qty: newQty > 0 ? newQty : 1 };
+          // 1. Không cho giảm xuống dưới 1
+          if (newQty < 1) return { ...item, qty: 1 };
+
+          // 2. Kiểm tra nếu vượt quá tồn kho (mặc định 5 nếu không có stock)
+          const maxStock = item.stock || 5;
+          if (newQty > maxStock) {
+            Alert.alert("Thông báo", `Món này chỉ còn ${maxStock} sản phẩm thôi nhe!`);
+            return { ...item, qty: maxStock };
+          }
+
+          return { ...item, qty: newQty };
         }
         return item;
       })
@@ -196,13 +206,37 @@ export default function CartScreen() {
                     </View>
                   ) : (
                     <View style={{ flexDirection: 'row', borderWidth: 1, borderColor: '#eee', borderRadius: 4, marginLeft: 10 }}>
-                      <TouchableOpacity onPress={() => updateQty(item.id, -1)} style={{ paddingHorizontal: 8, paddingVertical: 5, borderRightWidth: 1, borderRightColor: '#eee' }}>
-                        <Text style={{ fontSize: 16 }}>-</Text>
-                      </TouchableOpacity>
-                      <Text style={{ paddingHorizontal: 10, paddingTop: 6 }}>{item.qty}</Text>
-                      <TouchableOpacity onPress={() => updateQty(item.id, 1)} style={{ paddingHorizontal: 8, paddingVertical: 5, borderLeftWidth: 1, borderLeftColor: '#eee' }}>
-                        <Text style={{ fontSize: 16 }}>+</Text>
-                      </TouchableOpacity>
+                      {/* Nút Giảm - Mờ khi số lượng = 1 */}
+                        <TouchableOpacity
+                          onPress={() => updateQty(item.id, -1)}
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 5,
+                            borderRightWidth: 1,
+                            borderRightColor: '#eee',
+                            opacity: item.qty <= 1 ? 0.3 : 1 // Mờ đi
+                          }}
+                          disabled={item.qty <= 1} // Khóa bấm
+                        >
+                          <Text style={{ fontSize: 16 }}>-</Text>
+                        </TouchableOpacity>
+
+                        <Text style={{ paddingHorizontal: 10, paddingTop: 6 }}>{item.qty}</Text>
+
+                        {/* Nút Tăng - Mờ khi chạm mốc tồn kho */}
+                        <TouchableOpacity
+                          onPress={() => updateQty(item.id, 1)}
+                          style={{
+                            paddingHorizontal: 8,
+                            paddingVertical: 5,
+                            borderLeftWidth: 1,
+                            borderLeftColor: '#eee',
+                            opacity: item.qty >= (item.stock || 5) ? 0.3 : 1 // Mờ đi
+                          }}
+                          disabled={item.qty >= (item.stock || 5)} // Khóa bấm
+                        >
+                          <Text style={{ fontSize: 16 }}>+</Text>
+                        </TouchableOpacity>
                     </View>
                   )}
                 </View>
@@ -281,8 +315,24 @@ export default function CartScreen() {
               {new Intl.NumberFormat('vi-VN').format(totalPrice)}đ
             </Text>
           </View>
-          <TouchableOpacity style={{ backgroundColor: '#FF7524', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 25 }}>
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>Mua hàng ({selectedCount})</Text>
+          {/* Tìm nút Mua hàng ở cuối file app/cart.tsx */}
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#FF7524',
+              paddingHorizontal: 20,
+              paddingVertical: 12,
+              borderRadius: 25,
+              opacity: selectedCount > 0 ? 1 : 0.5 // Mờ đi nếu chưa chọn món nào
+            }}
+            disabled={selectedCount === 0} // Khóa nút nếu chưa chọn món
+            onPress={() => {
+              // Lệnh chuyển trang quan trọng nhất ở đây:
+              router.push('/checkout');
+            }}
+          >
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>
+              Mua hàng ({selectedCount})
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
