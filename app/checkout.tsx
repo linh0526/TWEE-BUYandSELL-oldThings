@@ -1,17 +1,18 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Image, Alert, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Image, Alert, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useCart } from '../context/CartContext';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 
 export default function CheckoutScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { cartItems, clearBoughtItems } = useCart();
+  const [loading, setLoading] = useState(false);
 
-  // LẤY DỮ LIỆU THẬT: Lọc các món được tích chọn từ Giỏ hàng
   const selectedItems = cartItems.filter((item: any) => item.checked);
-
-  // GIẢ LẬP: Phí vận chuyển (Sau này có DB/API sẽ tính dựa trên địa chỉ)
   const shippingFee = 15000;
 
   const parsePrice = (price: any) => {
@@ -22,10 +23,73 @@ export default function CheckoutScreen() {
   const subtotal = selectedItems.reduce((sum, item) => sum + (parsePrice(item.price) * (item.qty || 1)), 0);
   const total = subtotal + shippingFee;
 
+  // HÀM XỬ LÝ ĐẶT HÀNG
+  const handlePlaceOrder = async () => {
+    if (!user) {
+      Alert.alert("Thông báo", "Bạn cần đăng nhập để đặt hàng");
+      return;
+    }
+
+    if (selectedItems.length === 0) {
+      Alert.alert("Lỗi", "Giỏ hàng của bạn đang trống");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Duyệt qua từng sản phẩm để tạo đơn hàng
+      for (const item of selectedItems) {
+        // 1. Lấy seller_id của sản phẩm này (vì trong cart có thể chưa có)
+        const { data: productData, error: productError } = await supabase
+          .from('products')
+          .select('seller_id')
+          .eq('id', item.id)
+          .single();
+
+        if (productError) throw productError;
+
+        // 2. Tạo bản ghi đơn hàng
+        const { error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            buyer_id: user.id,
+            seller_id: productData.seller_id,
+            product_id: item.id,
+            quantity: item.qty || 1,
+            total_price: parsePrice(item.price) * (item.qty || 1) + (shippingFee / selectedItems.length), // Chia đều ship
+            status: 'pending'
+          });
+
+        if (orderError) throw orderError;
+      }
+
+      // Thông báo thành công
+      const msg = "Chúc mừng! Đơn hàng của bạn đã được hệ thống ghi nhận.";
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+        clearBoughtItems && clearBoughtItems();
+        router.replace('/(tabs)/profile');
+      } else {
+        Alert.alert("Thành công 🎉", msg, [
+          {
+            text: "Xem đơn hàng",
+            onPress: () => {
+              clearBoughtItems && clearBoughtItems();
+              router.replace('/my-orders?type=buying');
+            }
+          }
+        ]);
+      }
+    } catch (error: any) {
+      Alert.alert("Lỗi đặt hàng", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Feather name="arrow-left" size={24} color="black" />
@@ -34,7 +98,6 @@ export default function CheckoutScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Khối 1: ĐỊA CHỈ (GIẢ LẬP - Note: Sau này fetch từ bảng User_Addresses) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Feather name="map-pin" size={18} color="#FF7524" />
@@ -45,7 +108,6 @@ export default function CheckoutScreen() {
           <Text style={styles.addressText}>Quận 12, TP. Hồ Chí Minh</Text>
         </View>
 
-        {/* Khối 2: CHI TIẾT SẢN PHẨM (DỮ LIỆU THẬT) */}
         <View style={styles.section}>
            <Text style={styles.shopName}>🛍️ Tiệm đồ cũ TWEE</Text>
            {selectedItems.map((item) => (
@@ -60,7 +122,6 @@ export default function CheckoutScreen() {
            ))}
         </View>
 
-        {/* Khối 3: PHƯƠNG THỨC THANH TOÁN (GIẢ LẬP) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Feather name="credit-card" size={18} color="#FF7524" />
@@ -72,7 +133,6 @@ export default function CheckoutScreen() {
           </View>
         </View>
 
-        {/* Khối 4: CHI TIẾT THANH TOÁN */}
         <View style={styles.section}>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Tổng tiền hàng</Text>
@@ -89,33 +149,17 @@ export default function CheckoutScreen() {
         </View>
       </ScrollView>
 
-      {/* Khối 5: BOTTOM BAR (FOOTER) */}
       <View style={styles.footer}>
         <View style={styles.footerInfo}>
           <Text style={styles.footerLabel}>Tổng thanh toán</Text>
           <Text style={styles.footerPrice}>{total.toLocaleString()}đ</Text>
         </View>
         <TouchableOpacity
-          style={styles.orderButton}
-          onPress={() => {
-            Alert.alert(
-              "Thành công",
-              "Cảm ơn bạn đã đặt hàng tại TWEE!",
-              [
-                {
-                  text: "OK",
-                  onPress: () => {
-                    if (clearBoughtItems) {
-                      clearBoughtItems();
-                    }
-                    router.replace('/');
-                  }
-                }
-              ]
-            );
-          }}
+          style={[styles.orderButton, loading && { opacity: 0.7 }]}
+          onPress={handlePlaceOrder}
+          disabled={loading}
         >
-          <Text style={styles.orderButtonText}>Đặt hàng</Text>
+          {loading ? <ActivityIndicator color="white" /> : <Text style={styles.orderButtonText}>Đặt hàng</Text>}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -131,6 +175,7 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   sectionTitle: { marginLeft: 8, fontWeight: '600', fontSize: 15 },
   addressName: { fontWeight: 'bold', fontSize: 14, marginBottom: 4 },
+  phone: { color: '#444', marginBottom: 2 },
   addressText: { color: '#666', fontSize: 13, lineHeight: 18 },
   shopName: { fontWeight: 'bold', marginBottom: 12, fontSize: 14 },
   productItem: { flexDirection: 'row', marginBottom: 15 },
@@ -149,6 +194,6 @@ const styles = StyleSheet.create({
   footerInfo: { flex: 1, alignItems: 'flex-end', marginRight: 15 },
   footerLabel: { fontSize: 12, color: 'gray' },
   footerPrice: { fontSize: 18, fontWeight: 'bold', color: '#FF7524' },
-  orderButton: { backgroundColor: '#FF7524', paddingHorizontal: 30, paddingVertical: 12, borderRadius: 4 },
+  orderButton: { backgroundColor: '#FF7524', paddingHorizontal: 30, paddingVertical: 12, borderRadius: 4, minWidth: 120, alignItems: 'center' },
   orderButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 });

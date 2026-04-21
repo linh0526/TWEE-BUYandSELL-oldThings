@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Image, Modal, F
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useCart } from '../context/CartContext';
+
 export default function CartScreen() {
   const router = useRouter();
   const { cartItems, setCartItems, removeFromCart } = useCart();
@@ -11,7 +12,6 @@ export default function CartScreen() {
   const [similarProducts, setSimilarProducts] = useState<any[]>([]);
 
   const handleFindSimilar = (currentItem: any) => {
-    // Temporarily disabled until real product fetching is implemented
     setSimilarProducts([]);
     setShowSimilar(true);
   };
@@ -37,16 +37,12 @@ export default function CartScreen() {
       prev.map((item: any) => {
         if (item.id === id) {
           const newQty = item.qty + delta;
-          // 1. Không cho giảm xuống dưới 1
           if (newQty < 1) return { ...item, qty: 1 };
-
-          // 2. Kiểm tra nếu vượt quá tồn kho (mặc định 5 nếu không có stock)
           const maxStock = item.stock || 5;
           if (newQty > maxStock) {
             Alert.alert("Thông báo", `Món này chỉ còn ${maxStock} sản phẩm thôi nhe!`);
             return { ...item, qty: maxStock };
           }
-
           return { ...item, qty: newQty };
         }
         return item;
@@ -67,16 +63,17 @@ export default function CartScreen() {
     return parseInt(price.toString().replace(/\D/g, '')) || 0;
   };
 
+  // NẾU GIỎ HÀNG TRỐNG
   if (!cartItems || cartItems.length === 0) {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
-        <Feather name="shopping-cart" size={64} color="#ccc" />
-        <Text style={{ marginTop: 20, color: '#999', fontSize: 16 }}>Giỏ hàng của bạn đang trống</Text>
+        <Feather name="shopping-cart" size={64} color="#f0f0f0" />
+        <Text style={{ marginTop: 20, color: '#999', fontSize: 16, fontWeight: 'bold' }}>Giỏ hàng của bạn đang trống</Text>
         <TouchableOpacity
-          onPress={() => router.push('/')}
-          style={{ marginTop: 20, backgroundColor: '#FF7524', padding: 15, borderRadius: 10 }}
+          onPress={() => router.replace('/(tabs)')} // Dùng replace để quay về trang chủ sạch sẽ
+          style={{ marginTop: 24, backgroundColor: '#FF7524', paddingHorizontal: 40, paddingVertical: 15, borderRadius: 16, shadowColor: '#FF7524', shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 }}
         >
-          <Text style={{ color: 'white', fontWeight: 'bold' }}>Tiếp tục mua sắm</Text>
+          <Text style={{ color: 'white', fontWeight: 'black', fontSize: 14, uppercase: true }}>Tiếp tục mua sắm</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -94,12 +91,11 @@ export default function CartScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
-      {/* Header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#eee' }}>
           <TouchableOpacity onPress={() => router.back()} style={{ padding: 8, marginLeft: -8 }}>
             <Feather name="arrow-left" size={24} color="black" />
           </TouchableOpacity>
-          <Text style={{ fontSize: 20, fontWeight: 'bold', marginLeft: 12, color: '#000' }}>
+          <Text style={{ fontSize: 20, fontStyle: 'italic', fontWeight: 'black', marginLeft: 12, color: '#000' }}>
             Giỏ hàng ({cartItems.length})
           </Text>
       </View>
@@ -112,7 +108,7 @@ export default function CartScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 16 }}>
                 <TouchableOpacity
                   activeOpacity={0.6}
-                  onPress={() => router.push('/')}
+                  onPress={() => router.push('/(tabs)')}
                   style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}
                 >
                   <Feather name="home" size={16} color="black" />
@@ -164,27 +160,12 @@ export default function CartScreen() {
                       <TouchableOpacity
                         style={{ backgroundColor: '#FFF5EE', width: 65, height: 80, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }}
                         onPress={() => {
-                          // Hiện thông báo xác nhận
                           Alert.alert(
-                            "Xác nhận xóa", // Tiêu đề
-                            `Bạn có chắc chắn muốn xóa "${item.name}" khỏi giỏ hàng không?`,
+                            "Xác nhận xóa",
+                            `Bạn có chắc chắn muốn xóa món này khỏi giỏ hàng không?`,
                             [
-                              {
-                                text: "Hủy bỏ",
-                                onPress: () => console.log("Đã hủy xóa"),
-                                style: "cancel"
-                              },
-                              {
-                                text: "Xác nhận",
-                                onPress: () => {
-                                  if(removeFromCart) {
-                                    removeFromCart(item.id);
-                                  } else {
-                                    alert("Lỗi: Không tìm thấy hàm xóa!");
-                                  }
-                                },
-                                style: "destructive"
-                              }
+                              { text: "Hủy bỏ", style: "cancel" },
+                              { text: "Xác nhận", onPress: () => removeFromCart && removeFromCart(item.id), style: "destructive" }
                             ]
                           );
                         }}
@@ -195,34 +176,18 @@ export default function CartScreen() {
                     </View>
                   ) : (
                     <View style={{ flexDirection: 'row', borderWidth: 1, borderColor: '#eee', borderRadius: 4, marginLeft: 10 }}>
-                      {/* Nút Giảm - Mờ khi số lượng = 1 */}
                         <TouchableOpacity
                           onPress={() => updateQty(item.id, -1)}
-                          style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 5,
-                            borderRightWidth: 1,
-                            borderRightColor: '#eee',
-                            opacity: item.qty <= 1 ? 0.3 : 1 // Mờ đi
-                          }}
-                          disabled={item.qty <= 1} // Khóa bấm
+                          style={{ paddingHorizontal: 8, paddingVertical: 5, borderRightWidth: 1, borderRightColor: '#eee', opacity: item.qty <= 1 ? 0.3 : 1 }}
+                          disabled={item.qty <= 1}
                         >
                           <Text style={{ fontSize: 16 }}>-</Text>
                         </TouchableOpacity>
-
                         <Text style={{ paddingHorizontal: 10, paddingTop: 6 }}>{item.qty}</Text>
-
-                        {/* Nút Tăng - Mờ khi chạm mốc tồn kho */}
                         <TouchableOpacity
                           onPress={() => updateQty(item.id, 1)}
-                          style={{
-                            paddingHorizontal: 8,
-                            paddingVertical: 5,
-                            borderLeftWidth: 1,
-                            borderLeftColor: '#eee',
-                            opacity: item.qty >= (item.stock || 5) ? 0.3 : 1 // Mờ đi
-                          }}
-                          disabled={item.qty >= (item.stock || 5)} // Khóa bấm
+                          style={{ paddingHorizontal: 8, paddingVertical: 5, borderLeftWidth: 1, borderLeftColor: '#eee', opacity: item.qty >= (item.stock || 5) ? 0.3 : 1 }}
+                          disabled={item.qty >= (item.stock || 5)}
                         >
                           <Text style={{ fontSize: 16 }}>+</Text>
                         </TouchableOpacity>
@@ -234,62 +199,6 @@ export default function CartScreen() {
           );
         })}
       </ScrollView>
-
-      {/* --- MODAL HIỂN THỊ SẢN PHẨM TƯƠNG TỰ --- */}
-      <Modal visible={showSimilar} animationType="slide" transparent={true} statusBarTranslucent={true}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: 'white', borderTopLeftRadius: 25, borderTopRightRadius: 25, height: '70%', padding: 20 }}>
-            <View style={{ width: 40, height: 5, backgroundColor: '#eee', borderRadius: 10, alignSelf: 'center', marginBottom: 15 }} />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>Sản phẩm tương tự</Text>
-              <TouchableOpacity onPress={() => setShowSimilar(false)} style={{ padding: 5 }}>
-                <Feather name="x" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-
-            {similarProducts.length > 0 ? (
-              <FlatList
-                data={similarProducts}
-                keyExtractor={(item) => item.id}
-                showsVerticalScrollIndicator={false}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={{ flexDirection: 'row', marginBottom: 16, backgroundColor: '#f9f9f9', padding: 10, borderRadius: 12, alignItems: 'center' }}
-                    onPress={() => {
-                      setShowSimilar(false);
-                      router.push({
-                        pathname: '/product',
-                        params: {
-                          id: item.id,
-                          title: item.name,
-                          price: item.price,
-                          image: item.image,
-                          location: item.location
-                        }
-                      });
-                    }}
-                  >
-                    <Image source={{ uri: item.image }} style={{ width: 70, height: 70, borderRadius: 10 }} />
-                    <View style={{ marginLeft: 15, flex: 1 }}>
-                      <Text numberOfLines={1} style={{ fontWeight: 'bold', fontSize: 14 }}>{item.name}</Text>
-                      <Text style={{ color: '#FF7524', fontWeight: 'bold', marginTop: 5, fontSize: 15 }}>{item.price}đ</Text>
-                      <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }}>📍 {item.location}</Text>
-                    </View>
-                    <Feather name="chevron-right" size={20} color="#ccc" />
-                  </TouchableOpacity>
-                )}
-              />
-            ) : (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 50 }}>
-                <Feather name="search" size={60} color="#ddd" />
-                <Text style={{ marginTop: 20, fontSize: 16, color: '#999', fontWeight: '500' }}>
-                  Rất tiếc, không tìm thấy món tương tự!
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
 
       {/* Bottom Bar */}
       <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 12, borderTopWidth: 1, borderTopColor: '#eee', justifyContent: 'space-between' }}>
@@ -304,24 +213,12 @@ export default function CartScreen() {
               {new Intl.NumberFormat('vi-VN').format(totalPrice)}đ
             </Text>
           </View>
-          {/* Tìm nút Mua hàng ở cuối file app/cart.tsx */}
           <TouchableOpacity
-            style={{
-              backgroundColor: '#FF7524',
-              paddingHorizontal: 20,
-              paddingVertical: 12,
-              borderRadius: 25,
-              opacity: selectedCount > 0 ? 1 : 0.5 // Mờ đi nếu chưa chọn món nào
-            }}
-            disabled={selectedCount === 0} // Khóa nút nếu chưa chọn món
-            onPress={() => {
-              // Lệnh chuyển trang quan trọng nhất ở đây:
-              router.push('/checkout');
-            }}
+            style={{ backgroundColor: '#FF7524', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 25, opacity: selectedCount > 0 ? 1 : 0.5 }}
+            disabled={selectedCount === 0}
+            onPress={() => router.push('/checkout')}
           >
-            <Text style={{ color: 'white', fontWeight: 'bold' }}>
-              Mua hàng ({selectedCount})
-            </Text>
+            <Text style={{ color: 'white', fontWeight: 'bold' }}>Mua hàng ({selectedCount})</Text>
           </TouchableOpacity>
         </View>
       </View>
