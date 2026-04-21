@@ -1,14 +1,30 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import TopNavbar from '@/components/TopNavbar';
 import { useAuth } from '../../context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { profile, loading, signOut, refreshProfile } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
+  const [myProductsCount, setMyProductsCount] = useState(0);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (user) {
+        const { count, error } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('seller_id', user.id);
+
+        if (!error) setMyProductsCount(count || 0);
+      }
+    };
+    fetchStats();
+  }, [user]);
 
   if (loading) {
     return (
@@ -41,15 +57,18 @@ export default function ProfileScreen() {
   }
 
   const menuItems = [
-    { icon: <Feather name="package" size={18} color="#FF7524" />, label: 'Tin đăng của tôi', count: 0 },
+    {
+      icon: <Feather name="package" size={18} color="#FF7524" />,
+      label: 'Tin đăng của tôi',
+      count: myProductsCount,
+      onPress: () => router.push('/my-products')
+    },
     { icon: <Feather name="heart" size={18} color="#FF7524" />, label: 'Tin đã lưu', count: 0 },
     { icon: <Feather name="message-square" size={18} color="#FF7524" />, label: 'Tin nhắn', count: 0 },
     { icon: <Feather name="clock" size={18} color="#FF7524" />, label: 'Lịch sử mua hàng', count: 0 },
     { icon: <Feather name="settings" size={18} color="#FF7524" />, label: 'Cài đặt tài khoản' },
     ...(profile.is_admin ? [{ icon: <Feather name="shield" size={18} color="#FF7524" />, label: 'Quản trị hệ thống', onPress: () => router.push('/(admin)/dashboard') }] : []),
   ];
-
-
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top']}>
@@ -58,13 +77,10 @@ export default function ProfileScreen() {
       <ScrollView className="flex-1 p-6">
         {/* Profile Card */}
         <View className="items-center mb-10">
-          <View className="relative">
-            <View className="w-28 h-28 rounded-full bg-orange-50 border-2 border-primary/20 items-center justify-center">
-               <Text className="text-4xl font-black text-primary">
-                 {profile.full_name?.substring(0, 2).toUpperCase() || 'TW'}
-               </Text>
-            </View>
-
+          <View className="w-28 h-28 rounded-full bg-orange-50 border-2 border-primary/20 items-center justify-center">
+             <Text className="text-4xl font-black text-primary">
+               {profile.full_name?.substring(0, 2).toUpperCase() || 'TW'}
+             </Text>
           </View>
           <Text className="text-3xl font-black text-primary mt-6 tracking-tighter uppercase">{profile.full_name || 'Người dùng Twee'}</Text>
           <View className="flex-row items-center mt-2">
@@ -73,8 +89,6 @@ export default function ProfileScreen() {
               {profile.trust_score} Điểm tin cậy • {profile.email}
             </Text>
           </View>
-          
-
         </View>
 
         {/* Stats Grid */}
@@ -84,7 +98,7 @@ export default function ProfileScreen() {
              <Text className="text-[9px] text-gray-400 font-black uppercase tracking-widest mt-2">Lượt mua</Text>
            </View>
            <View className="bg-gray-50 flex-1 py-6 rounded-2xl mr-3 items-center border border-gray-100">
-             <Text className="text-2xl font-black text-primary">0</Text>
+             <Text className="text-2xl font-black text-primary">{myProductsCount}</Text>
              <Text className="text-[9px] text-gray-400 font-black uppercase tracking-widest mt-2">Đang bán</Text>
            </View>
            <View className="bg-gray-50 flex-1 py-6 rounded-2xl items-center border border-gray-100">
@@ -108,7 +122,7 @@ export default function ProfileScreen() {
                 <Text className="text-gray-800 font-bold text-sm uppercase tracking-wider">{item.label}</Text>
               </View>
               <View className="flex-row items-center">
-                {item.count !== undefined && item.count > 0 && (
+                {item.count !== undefined && item.count >= 0 && (
                   <View className="bg-primary px-3 py-1 rounded-full mr-3">
                     <Text className="text-white font-black text-[10px]">{item.count}</Text>
                   </View>
