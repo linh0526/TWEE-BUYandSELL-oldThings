@@ -56,15 +56,19 @@ const ProductCard = ({
       </View>
       
       {(!hideTitle || !hideLocation) && (
-        <View className="p-3">
+        <View className="p-2.5">
           {!hideTitle && (
-            <Text className="text-primary font-black text-sm mb-1 leading-tight tracking-tight" numberOfLines={2}>
+            <Text 
+              className="text-primary font-black text-sm mb-0.5 leading-[16px] tracking-tight" 
+              numberOfLines={2}
+              style={{ minHeight: 32 }}
+            >
               {title}
             </Text>
           )}
           {!hideLocation && (
-            <View className="flex-row items-center mt-2">
-               <Feather name="map-pin" size={10} color="#FF7524" className="mr-1.5" />
+            <View className="flex-row items-center mt-1">
+               <Feather name="map-pin" size={10} color="#FF7524" className="mr-1" />
                <Text className="text-on-surface-variant text-[9px] font-bold uppercase tracking-widest truncate flex-1" numberOfLines={1}>
                  {location}
                </Text>

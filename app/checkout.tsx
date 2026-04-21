@@ -20,7 +20,7 @@ export default function CheckoutScreen() {
     return parseInt(price?.toString().replace(/\D/g, '')) || 0;
   };
 
-  const subtotal = selectedItems.reduce((sum, item) => sum + (parsePrice(item.price) * (item.qty || 1)), 0);
+  const subtotal = selectedItems.reduce((sum: number, item: any) => sum + (parsePrice(item.price) * (item.qty || 1)), 0);
   const total = subtotal + shippingFee;
 
   // HÀM XỬ LÝ ĐẶT HÀNG
@@ -108,19 +108,27 @@ export default function CheckoutScreen() {
           <Text style={styles.addressText}>Quận 12, TP. Hồ Chí Minh</Text>
         </View>
 
-        <View style={styles.section}>
-           <Text style={styles.shopName}>🛍️ Tiệm đồ cũ TWEE</Text>
-           {selectedItems.map((item) => (
-             <View key={item.id} style={styles.productItem}>
+        {/* Group by shop */}
+        {Object.keys(selectedItems.reduce((acc: any, item: any) => {
+          const shop = item.shop || 'Cửa hàng Twee';
+          if (!acc[shop]) acc[shop] = [];
+          acc[shop].push(item);
+          return acc;
+        }, {})).map((shopName: string, shopIndex: number) => (
+          <View key={shopIndex} style={styles.section}>
+            <Text style={styles.shopName}>🛍️ {shopName}</Text>
+            {selectedItems.filter((item: any) => (item.shop || 'Cửa hàng Twee') === shopName).map((item: any) => (
+              <View key={item.id} style={styles.productItem}>
                 <Image source={{ uri: item.image }} style={styles.productImage} />
                 <View style={styles.productInfo}>
                   <Text numberOfLines={1} style={styles.productName}>{item.name}</Text>
                   <Text style={styles.productPrice}>{parsePrice(item.price).toLocaleString()}đ</Text>
                   <Text style={styles.productQty}>Số lượng: {item.qty}</Text>
                 </View>
-             </View>
-           ))}
-        </View>
+              </View>
+            ))}
+          </View>
+        ))}
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>

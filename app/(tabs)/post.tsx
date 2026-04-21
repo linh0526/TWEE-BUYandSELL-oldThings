@@ -47,30 +47,78 @@ export default function PostScreen() {
   const uploadImages = async (uris: string[]) => {
     const urls = [];
     for (const uri of uris) {
-      try {
-        const fileName = `${user?.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        const { data, error } = await supabase.storage.from('products').upload(fileName, blob);
-        if (error) throw error;
-        const { data: { publicUrl } } = supabase.storage.from('products').getPublicUrl(data.path);
-        urls.push(publicUrl);
-      } catch (err) {
-        console.error("Upload error:", err);
+      const fileName = `${user?.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+      
+      // Sử dụng FormData - Cách chuẩn nhất cho React Native khi dùng Supabase Storage
+      const formData = new FormData();
+      formData.append('file', {
+        uri: uri,
+        type: 'image/jpeg',
+        name: fileName,
+      } as any);
+
+      const { data, error } = await supabase.storage
+        .from('products')
+        .upload(fileName, formData, {
+          upsert: true
+        });
+
+      if (error) {
+        console.error("Storage upload error:", error);
+        throw error;
       }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('products')
+        .getPublicUrl(data.path);
+        
+      urls.push(publicUrl);
     }
     return urls;
   };
 
   const handlePost = async () => {
+    // 1. Kiểm tra đăng nhập với Popup chuyên nghiệp
     if (!user) {
-      const msg = 'Bạn cần đăng nhập để đăng tin';
-      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Lỗi', msg);
+      if (Platform.OS === 'web') {
+        if (window.confirm('Bạn cần đăng nhập để thực hiện chức năng này. Đăng nhập ngay?')) {
+          router.push('/(auth)/login');
+        }
+      } else {
+        Alert.alert(
+          'Yêu cầu đăng nhập',
+          'Vui lòng đăng nhập để có thể niêm yết sản phẩm của bạn trên Twee.',
+          [
+            { text: 'Để sau', style: 'cancel' },
+            { text: 'Đăng nhập ngay', onPress: () => router.push('/(auth)/login'), style: 'default' }
+          ]
+        );
+      }
       return;
     }
-    if (!title || !price || !categoryId) {
-      const msg = 'Vui lòng điền đủ Tiêu đề, Giá và Danh mục';
+
+    // 2. Ràng buộc điền đầy đủ thông tin
+    if (images.length === 0) {
+      const msg = 'Vui lòng chọn ít nhất 1 hình ảnh cho sản phẩm';
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Thiếu ảnh', msg);
+      return;
+    }
+    
+    if (!title.trim() || !price || !categoryId) {
+      const msg = 'Vui lòng điền Tiêu đề, Giá bán và chọn Danh mục';
       Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Thiếu thông tin', msg);
+      return;
+    }
+
+    if (!description.trim() || description.length < 20) {
+      const msg = 'Mô tả cần ít nhất 20 ký tự để người mua dễ hình dung';
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Mô tả quá ngắn', msg);
+      return;
+    }
+
+    if (!location.trim()) {
+      const msg = 'Vui lòng nhập Khu vực/Địa điểm bán';
+      Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Thiếu địa chỉ', msg);
       return;
     }
 

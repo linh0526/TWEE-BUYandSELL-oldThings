@@ -26,6 +26,14 @@ export default function MyOrdersScreen() {
             title,
             images,
             price
+          ),
+          seller:seller_id (
+            display_name,
+            full_name
+          ),
+          buyer:buyer_id (
+            display_name,
+            full_name
           )
         `)
         .order('created_at', { ascending: false });
@@ -120,33 +128,41 @@ export default function MyOrdersScreen() {
         </View>
       ) : (
         <ScrollView className="flex-1 bg-gray-50/50" showsVerticalScrollIndicator={false}>
-          {orders.map((order) => (
-            <View
-              key={order.id}
-              className="bg-white m-4 mb-0 p-5 rounded-[32px] border border-gray-100 shadow-sm"
-            >
-              <View className="flex-row justify-between items-center mb-4 border-b border-gray-50 pb-3">
-                 <Text className="text-[10px] font-bold text-gray-400 uppercase">Mã: {order.id.substring(0, 8)}</Text>
-                 <View className="bg-orange-50 px-3 py-1 rounded-full">
-                    <Text className="text-[9px] font-black uppercase text-orange-500">
-                       {getStatusText(order.status)}
-                    </Text>
-                 </View>
-              </View>
+          {orders.map((order) => {
+            const partnerName = type === 'buying' 
+              ? (order.seller?.display_name || order.seller?.full_name || 'Người bán Twee')
+              : (order.buyer?.display_name || order.buyer?.full_name || 'Người mua Twee');
 
-              <View className="flex-row">
-                <Image
-                  source={{ uri: order.products?.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400' }}
-                  className="w-20 h-20 rounded-2xl"
-                />
-                <View className="flex-1 ml-4 justify-center">
-                  <Text className="text-primary font-black text-sm mb-1" numberOfLines={2}>{order.products?.title || 'Sản phẩm'}</Text>
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-gray-400 text-xs font-bold">x{order.quantity}</Text>
-                    <Text className="text-secondary font-black text-base">{formatPrice(order.total_price)}</Text>
+            return (
+              <View
+                key={order.id}
+                className="bg-white m-4 mb-0 p-5 rounded-[32px] border border-gray-100 shadow-sm"
+              >
+                <View className="flex-row justify-between items-center mb-4 border-b border-gray-50 pb-3">
+                   <View className="flex-row items-center">
+                      <Feather name="user" size={10} color="#FF7524" />
+                      <Text className="ml-1 text-[10px] font-black text-primary uppercase">{partnerName}</Text>
+                   </View>
+                   <View className="bg-orange-50 px-3 py-1 rounded-full">
+                      <Text className="text-[9px] font-black uppercase text-orange-500">
+                         {getStatusText(order.status)}
+                      </Text>
+                   </View>
+                </View>
+
+                <View className="flex-row">
+                  <Image
+                    source={{ uri: order.products?.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400' }}
+                    className="w-20 h-20 rounded-2xl"
+                  />
+                  <View className="flex-1 ml-4 justify-center">
+                    <Text className="text-primary font-black text-sm mb-1" numberOfLines={2}>{order.products?.title || 'Sản phẩm'}</Text>
+                    <View className="flex-row justify-between items-center">
+                      <Text className="text-gray-400 text-xs font-bold">x{order.quantity}</Text>
+                      <Text className="text-secondary font-black text-base">{formatPrice(order.total_price)}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
 
               <View className="mt-4 pt-4 border-t border-gray-50 flex-row justify-end">
                  <TouchableOpacity
@@ -166,7 +182,8 @@ export default function MyOrdersScreen() {
                  )}
               </View>
             </View>
-          ))}
+            );
+          })}
 
           {orders.length === 0 && (
             <View className="items-center py-24">

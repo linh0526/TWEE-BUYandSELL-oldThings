@@ -21,7 +21,7 @@ export default function SearchScreen() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      let query = supabase.from('products').select('*').eq('status', 'active');
+      let query = supabase.from('products').select('*, profiles(display_name, full_name)').eq('status', 'active');
       if (searchQuery) query = query.ilike('title', `%${searchQuery}%`);
       if (priceRange.min) query = query.gte('price', parseInt(priceRange.min));
       if (priceRange.max) query = query.lte('price', parseInt(priceRange.max));

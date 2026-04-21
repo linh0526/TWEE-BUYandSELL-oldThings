@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Dimensions, StyleSheet, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Dimensions, StyleSheet, Platform, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
+import { supabase } from '@/lib/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -34,12 +35,51 @@ const POLICIES = [
 ];
 
 export default function ProductDetailScreen() {
-  const item = useLocalSearchParams();
+  const params = useLocalSearchParams();
   const router = useRouter();
+  const [product, setProduct] = React.useState<any>(null);
+  const [seller, setSeller] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    fetchData();
+  }, [params.id]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      // 1. Lấy thông tin sản phẩm
+      const { data: prodData, error: prodError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', params.id)
+        .single();
+
+      if (prodError) throw prodError;
+      setProduct(prodData);
+
+      // 2. Lấy thông tin người bán
+      if (prodData?.seller_id) {
+        const { data: sellerData, error: sellerError } = await supabase
+          .from('profiles')
+          .select('display_name, full_name, avatar_url')
+          .eq('id', prodData.seller_id)
+          .single();
+        
+        if (!sellerError) setSeller(sellerData);
+      }
+    } catch (error) {
+      console.error('Lỗi lấy dữ liệu sản phẩm:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const item = product || params; // Fallback to params if fetch fails or still loading
 
   // Logic tự nhận diện Category từ Title để lấy câu mô tả phù hợp
   const randomDesc = React.useMemo(() => {
-    const title = (item.title as string) || "";
+    const title = (item?.title as string) || "";
     let category = 'Mặc định';
 
     if (title.toLowerCase().includes('sách') || title.toLowerCase().includes('truyện')) category = 'Sách';
@@ -48,13 +88,29 @@ export default function ProductDetailScreen() {
 
     const list = CATEGORY_DESCRIPTIONS[category] || CATEGORY_DESCRIPTIONS['Mặc định'];
     // Dùng ID để cố định câu mô tả cho từng sản phẩm
-    const index = Math.abs(parseInt(item.id as string) || 0) % list.length;
+    const index = Math.abs(parseInt(item?.id as string) || 0) % list.length;
     return list[index];
-  }, [item.id, item.title]);
+  }, [item?.id, item?.title]);
 
   const randomTags = React.useMemo(() => {
     return [...POLICIES].sort(() => 0.5 - Math.random()).slice(0, 4);
-  }, [item.id]);
+  }, [item?.id]);
+
+  const formatPrice = (price: any) => {
+    if (!price) return '0';
+    return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+
+  if (loading) {
+    return (
+      <View className="flex-1 justify-center items-center bg-white">
+        <ActivityIndicator color="#FF7524" size="large" />
+      </View>
+    );
+  }
+
+  const sellerName = seller?.display_name || seller?.full_name || 'Người bán Twee';
+  const sellerInitial = (sellerName?.[0] || 'T').toUpperCase();
 
   return (
     <View style={styles.container}>
@@ -79,7 +135,7 @@ export default function ProductDetailScreen() {
         <View className="items-center pt-8 pb-10">
           <View style={styles.mainCard}>
             <Image
-              source={item.image as string}
+              source={item.image_url || item.image}
               style={{ width: width * 0.8, height: width * 0.8 }}
               contentFit="cover"
               transition={800}
@@ -111,15 +167,15 @@ export default function ProductDetailScreen() {
           </View>
 
           <View className="mt-6 flex-row items-baseline">
-            <Text className="text-4xl font-black text-secondary tracking-tighter">{item.price}</Text>
+            <Text className="text-4xl font-black text-secondary tracking-tighter">{formatPrice(item.price)}</Text>
             <Text className="ml-2 text-[10px] font-black text-secondary/50 uppercase tracking-widest">VNĐ</Text>
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-8 flex-row">
              {randomTags.map((tag, i) => (
-               <View key={i} className="mr-2 px-4 py-2 bg-gray-50 rounded-xl border border-black/5">
-                  <Text className="text-[9px] font-black text-primary/50 uppercase tracking-widest">{tag}</Text>
-               </View>
+                <View key={i} className="mr-2 px-4 py-2 bg-gray-50 rounded-xl border border-black/5">
+                   <Text className="text-[9px] font-black text-primary/50 uppercase tracking-widest">{tag}</Text>
+                </View>
              ))}
           </ScrollView>
 
@@ -127,12 +183,16 @@ export default function ProductDetailScreen() {
 
           <TouchableOpacity className="flex-row items-center justify-between bg-gray-50 p-5 rounded-[32px] border border-black/5">
             <View className="flex-row items-center">
-                <View className="w-14 h-14 rounded-[22px] bg-secondary items-center justify-center shadow-lg shadow-secondary/20">
-                    <Text className="text-white font-black text-lg">AT</Text>
-                </View>
+                {seller?.avatar_url ? (
+                  <Image source={{ uri: seller.avatar_url }} className="w-14 h-14 rounded-[22px]" />
+                ) : (
+                  <View className="w-14 h-14 rounded-[22px] bg-secondary items-center justify-center shadow-lg shadow-secondary/20">
+                      <Text className="text-white font-black text-lg">{sellerInitial}</Text>
+                  </View>
+                )}
                 <View className="ml-4">
                     <View className="flex-row items-center">
-                        <Text className="text-sm font-black text-primary uppercase mr-2">Admin Twee</Text>
+                        <Text className="text-sm font-black text-primary uppercase mr-2">{sellerName}</Text>
                         <Feather name="check-circle" size={14} color="#22C55E" />
                     </View>
                     <Text className="text-[9px] text-primary/40 font-bold uppercase mt-1 tracking-widest">4.9⭐ • Phản hồi nhanh</Text>
@@ -144,7 +204,7 @@ export default function ProductDetailScreen() {
           <View className="mt-10">
              <Text className="text-[9px] font-black text-primary/30 uppercase tracking-[0.2em] mb-4">Mô tả chi tiết</Text>
              <Text className="text-primary/60 font-bold text-[13px] leading-6 uppercase tracking-tight">
-                {randomDesc}
+                {item.description || randomDesc}
              </Text>
           </View>
         </View>

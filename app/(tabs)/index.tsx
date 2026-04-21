@@ -2,7 +2,7 @@ import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Ref
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import ProductCard from '@/components/ProductCard';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import TopNavbar from '@/components/TopNavbar';
 import { useCategoryStore } from '@/lib/store/useCategoryStore';
 import { supabase } from '@/lib/supabase';
@@ -15,6 +15,7 @@ const HomeScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Lấy danh mục gốc
   const rootCategories = useMemo(() => getRootCategories(), [categories, getRootCategories]);
 
   const fetchProducts = async (showLoading = true) => {
@@ -22,7 +23,7 @@ const HomeScreen = () => {
       if (showLoading) setIsLoading(true);
       const { data, error } = await supabase
         .from('products')
-        .select('*')
+        .select('*, profiles(display_name, full_name)')
         .eq('status', 'active')
         .order('created_at', { ascending: false });
 
@@ -36,9 +37,11 @@ const HomeScreen = () => {
     }
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchProducts(false);
+    }, [])
+  );
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -98,6 +101,16 @@ const HomeScreen = () => {
                 />
               </View>
             ))}
+            {/* View trống để căn lề cho dòng cuối khi dùng justify-between */}
+            {products.length % 3 === 2 && (
+              <View style={{ width: '31.5%', height: 0 }} />
+            )}
+            {products.length % 3 === 1 && (
+              <>
+                <View style={{ width: '31.5%', height: 0 }} />
+                <View style={{ width: '31.5%', height: 0 }} />
+              </>
+            )}
           </View>
         )}
       </ScrollView>

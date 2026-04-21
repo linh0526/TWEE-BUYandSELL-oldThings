@@ -21,8 +21,8 @@ export default function OrderDetailScreen() {
         .select(`
           *,
           products:product_id (*),
-          buyer:buyer_id (full_name, email),
-          seller:seller_id (full_name, email)
+          buyer:buyer_id (full_name, email, display_name),
+          seller:seller_id (full_name, email, display_name)
         `)
         .eq('id', id)
         .single();
@@ -93,7 +93,7 @@ export default function OrderDetailScreen() {
         </View>
 
         {/* Date Section */}
-        <View className="bg-white mt-3 p-6 mb-20">
+        <View className="bg-white mt-3 p-6">
            <View className="flex-row items-center justify-between mb-4">
               <Text className="text-gray-400 font-black text-[10px] uppercase">Thời gian đặt hàng</Text>
               <Text className="text-primary font-bold text-xs">{new Date(order.created_at).toLocaleString('vi-VN')}</Text>
@@ -101,6 +101,19 @@ export default function OrderDetailScreen() {
            <View className="flex-row items-center justify-between">
               <Text className="text-gray-400 font-black text-[10px] uppercase">Phương thức</Text>
               <Text className="text-primary font-bold text-xs">Thanh toán khi nhận hàng (COD)</Text>
+           </View>
+        </View>
+
+        {/* Participant Section */}
+        <View className="bg-white mt-3 p-6 mb-20">
+           <Text className="text-[10px] font-black text-gray-400 mb-4 uppercase tracking-widest">Thông tin giao dịch</Text>
+           <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-gray-500 font-bold text-xs uppercase">Người bán</Text>
+              <Text className="text-primary font-black text-xs uppercase">{order.seller?.display_name || order.seller?.full_name || 'N/A'}</Text>
+           </View>
+           <View className="flex-row items-center justify-between">
+              <Text className="text-gray-500 font-bold text-xs uppercase">Người mua</Text>
+              <Text className="text-primary font-black text-xs uppercase">{order.buyer?.display_name || order.buyer?.full_name || 'N/A'}</Text>
            </View>
         </View>
       </ScrollView>

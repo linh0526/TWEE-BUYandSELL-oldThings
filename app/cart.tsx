@@ -73,7 +73,7 @@ export default function CartScreen() {
           onPress={() => router.replace('/(tabs)')} // Dùng replace để quay về trang chủ sạch sẽ
           style={{ marginTop: 24, backgroundColor: '#FF7524', paddingHorizontal: 40, paddingVertical: 15, borderRadius: 16, shadowColor: '#FF7524', shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 }}
         >
-          <Text style={{ color: 'white', fontWeight: 'black', fontSize: 14, uppercase: true }}>Tiếp tục mua sắm</Text>
+          <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 14, textTransform: 'uppercase' }}>Tiếp tục mua sắm</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -95,7 +95,7 @@ export default function CartScreen() {
           <TouchableOpacity onPress={() => router.back()} style={{ padding: 8, marginLeft: -8 }}>
             <Feather name="arrow-left" size={24} color="black" />
           </TouchableOpacity>
-          <Text style={{ fontSize: 20, fontStyle: 'italic', fontWeight: 'black', marginLeft: 12, color: '#000' }}>
+          <Text style={{ fontSize: 20, fontStyle: 'italic', fontWeight: 'bold', marginLeft: 12, color: '#000' }}>
             Giỏ hàng ({cartItems.length})
           </Text>
       </View>
