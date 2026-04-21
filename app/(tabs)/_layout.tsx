@@ -94,6 +94,7 @@ export default function TabLayout() {
         name="product"
         options={{
           href: null,
+          tabBarStyle: { display: 'none' },
         }}
       />
     </Tabs>

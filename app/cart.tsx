@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Image, Modal, FlatList, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Modal, FlatList, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useCart } from '../context/CartContext';
+import { Image } from 'expo-image';
+import Toast from 'react-native-toast-message';
+import { getImageUrl } from '@/utils/image';
 
 export default function CartScreen() {
   const router = useRouter();
-  const { cartItems, setCartItems, removeFromCart } = useCart();
+  const { cartItems, setCartItems, removeFromCart, updateQuantity } = useCart();
   const [editingShops, setEditingShops] = useState<string[]>([]);
   const [showSimilar, setShowSimilar] = useState(false);
   const [similarProducts, setSimilarProducts] = useState<any[]>([]);
@@ -33,21 +37,7 @@ export default function CartScreen() {
   };
 
   const updateQty = (id: string | number, delta: number) => {
-    setCartItems((prev: any) =>
-      prev.map((item: any) => {
-        if (item.id === id) {
-          const newQty = item.qty + delta;
-          if (newQty < 1) return { ...item, qty: 1 };
-          const maxStock = item.stock || 5;
-          if (newQty > maxStock) {
-            Alert.alert("Thông báo", `Món này chỉ còn ${maxStock} sản phẩm thôi nhe!`);
-            return { ...item, qty: maxStock };
-          }
-          return { ...item, qty: newQty };
-        }
-        return item;
-      })
-    );
+    updateQuantity(id, delta);
   };
 
   const toggleSelectAll = () => {
@@ -132,11 +122,23 @@ export default function CartScreen() {
                     onPress={() => {
                       router.push({
                         pathname: '/product',
-                        params: { id: item.id, title: item.name, price: item.price, image: item.image, location: item.location || 'Hồ Chí Minh' }
+                        params: { id: item.id, title: item.name, price: item.price, image: item.image, location: item.location || 'TP. Hồ Chí Minh' }
                       });
                     }}
                   >
-                    <Image source={{ uri: item.image }} style={{ width: 80, height: 80, borderRadius: 8, marginLeft: 10 }} />
+                    <View className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden items-center justify-center">
+                      <Image 
+                        source={{ uri: getImageUrl(item.image_url || item.image || item.images || item.product?.images) }} 
+                        style={{ width: '100%', height: '100%' }} 
+                        contentFit="cover"
+                        transition={200}
+                      />
+                      {!getImageUrl(item.image_url || item.image || item.images || item.product?.images) && (
+                        <View className="absolute inset-0 items-center justify-center bg-gray-50">
+                          <Feather name="image" size={24} color="#DDD" />
+                        </View>
+                      )}
+                    </View>
                     <View style={{ flex: 1, marginLeft: 12, height: 80, justifyContent: 'space-between' }}>
                       <Text numberOfLines={2} style={{ fontSize: 14 }}>{item.name}</Text>
                       <Text style={{ color: '#FF424E', fontWeight: 'bold', fontSize: 16 }}>
@@ -186,8 +188,7 @@ export default function CartScreen() {
                         <Text style={{ paddingHorizontal: 10, paddingTop: 6 }}>{item.qty}</Text>
                         <TouchableOpacity
                           onPress={() => updateQty(item.id, 1)}
-                          style={{ paddingHorizontal: 8, paddingVertical: 5, borderLeftWidth: 1, borderLeftColor: '#eee', opacity: item.qty >= (item.stock || 5) ? 0.3 : 1 }}
-                          disabled={item.qty >= (item.stock || 5)}
+                          style={{ paddingHorizontal: 8, paddingVertical: 5, borderLeftWidth: 1, borderLeftColor: '#eee' }}
                         >
                           <Text style={{ fontSize: 16 }}>+</Text>
                         </TouchableOpacity>

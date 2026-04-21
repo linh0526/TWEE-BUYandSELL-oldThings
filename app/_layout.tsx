@@ -25,6 +25,62 @@ const CuratorTheme = {
   },
 };
 
+import Toast, { BaseToast, ErrorToast, InfoToast } from 'react-native-toast-message';
+
+const toastConfig = {
+  success: (props: any) => (
+    <BaseToast
+      {...props}
+      style={{ borderLeftColor: '#22C55E', height: 80, borderLeftWidth: 10, borderRadius: 16 }}
+      contentContainerStyle={{ paddingHorizontal: 20 }}
+      text1Style={{
+        fontSize: 22,
+        fontWeight: '900',
+        color: '#1A1A1A'
+      }}
+      text2Style={{
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#666'
+      }}
+    />
+  ),
+  error: (props: any) => (
+    <ErrorToast
+      {...props}
+      style={{ borderLeftColor: '#EF4444', height: 100, borderLeftWidth: 12, borderRadius: 20 }}
+      contentContainerStyle={{ paddingHorizontal: 20 }}
+      text1Style={{
+        fontSize: 22,
+        fontWeight: '900',
+        color: '#1A1A1A'
+      }}
+      text2Style={{
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#666'
+      }}
+    />
+  ),
+  info: (props: any) => (
+    <InfoToast
+      {...props}
+      style={{ borderLeftColor: '#FF7524', height: 100, borderLeftWidth: 12, borderRadius: 20 }}
+      contentContainerStyle={{ paddingHorizontal: 20 }}
+      text1Style={{
+        fontSize: 22,
+        fontWeight: '900',
+        color: '#1A1A1A'
+      }}
+      text2Style={{
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#666'
+      }}
+    />
+  ),
+};
+
 function RootLayout() {
   const fetchCategories = useCategoryStore(state => state.fetchCategories);
 
@@ -36,13 +92,15 @@ function RootLayout() {
     <AuthProvider>
       <CartProvider>
         <ThemeProvider value={CuratorTheme}>
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="search" options={{ headerShown: false }} />
-            <Stack.Screen name="cart" options={{ headerShown: false }} />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="search" />
+            <Stack.Screen name="cart" />
+            <Stack.Screen name="shop/[id]" />
           </Stack>
           <StatusBar style="dark" />
+          <Toast config={toastConfig} />
         </ThemeProvider>
       </CartProvider>
     </AuthProvider>

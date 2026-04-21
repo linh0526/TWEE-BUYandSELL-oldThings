@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import Toast from 'react-native-toast-message';
 
 const LoginScreen = () => {
   const router = useRouter();
@@ -14,7 +15,7 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ email và mật khẩu');
+      Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Vui lòng nhập đầy đủ email và mật khẩu' });
       return;
     }
 
@@ -25,7 +26,7 @@ const LoginScreen = () => {
     });
 
     if (error) {
-      Alert.alert('Đăng nhập thất bại', error.message);
+      Toast.show({ type: 'error', text1: 'Đăng nhập thất bại', text2: error.message });
       setLoading(false);
     } else {
       router.replace('/(tabs)');

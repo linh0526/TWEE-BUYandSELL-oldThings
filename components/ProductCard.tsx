@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ImageSourcePropType } from 'react-native';
 import { Image } from 'expo-image';
 import { Feather } from '@expo/vector-icons';
+import { getImageUrl } from '@/utils/image';
 
 interface ProductCardProps {
   title: string;
@@ -13,6 +14,8 @@ interface ProductCardProps {
   onPress?: () => void;
   hideTitle?: boolean;
   hideLocation?: boolean;
+  shipping_fee_type?: string;
+  is_trusted?: boolean;
 }
 
 const ProductCard = ({ 
@@ -21,13 +24,17 @@ const ProductCard = ({
   image, 
   images, 
   quantity, 
-  location = 'TP. Hồ Chí Minh', 
+  location = 'Toàn quốc', 
+  shipping_fee_type,
+  is_trusted,
   onPress, 
   hideTitle, 
   hideLocation 
 }: ProductCardProps) => {
-  const displayImage = (Array.isArray(images) && images.length > 0) ? images[0] : image;
-  const imageCount = Array.isArray(images) ? images.length : 0;
+
+
+  const displayImagePath = (Array.isArray(images) && images.length > 0) ? images[0] : image;
+  const displayImageUri = getImageUrl(displayImagePath);
 
   return (
     <TouchableOpacity 
@@ -38,17 +45,32 @@ const ProductCard = ({
       <View className="relative">
         <View style={{ aspectRatio: 1 }} className="overflow-hidden rounded-xl">
              <Image 
-                source={{ 
-                  uri: typeof displayImage === 'string' && displayImage.startsWith('http') 
-                    ? displayImage 
-                    : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800' 
-                }} 
-                style={{ width: '100%', height: '100%' }}
+                source={{ uri: displayImageUri }}
+                style={{ width: '100%', height: '100%', backgroundColor: '#F8F9FA' }}
                 contentFit="cover"
                 transition={200}
             />
+            {!displayImageUri && (
+              <View className="absolute inset-0 items-center justify-center bg-gray-50">
+                <Feather name="image" size={24} color="#DDD" />
+              </View>
+            )}
         </View>
         
+        {/* Tags - Top Left */}
+        <View className="absolute top-1.5 left-1.5 flex-row flex-wrap gap-1">
+          {shipping_fee_type === 'seller_pays' && (
+            <View className="bg-[#E6F9F1] px-1.5 py-0.5 rounded-md border border-[#00B464]/20">
+              <Text className="text-[#00B464] text-[8px] font-black uppercase tracking-tighter">Freeship</Text>
+            </View>
+          )}
+          {is_trusted && (
+            <View className="bg-[#E8F3FF] px-1.5 py-0.5 rounded-md border border-[#007AFF]/20">
+              <Text className="text-[#007AFF] text-[8px] font-black uppercase tracking-tighter">Uy tín</Text>
+            </View>
+          )}
+        </View>
+
         {/* Price Tag - Bottom Left */}
         <View className="absolute bottom-2 left-2 bg-secondary px-1.5 py-1 rounded-lg shadow-lg">
           <Text className="text-[#3C1300] text-[10px] font-black tracking-tighter uppercase">{price}</Text>
@@ -59,9 +81,9 @@ const ProductCard = ({
         <View className="p-2.5">
           {!hideTitle && (
             <Text 
-              className="text-primary font-black text-sm mb-0.5 leading-[16px] tracking-tight" 
+              className="text-primary font-black text-[11px] mb-1 leading-[14px] tracking-tight" 
               numberOfLines={2}
-              style={{ minHeight: 32 }}
+              style={{ minHeight: 28 }}
             >
               {title}
             </Text>

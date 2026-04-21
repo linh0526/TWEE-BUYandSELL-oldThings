@@ -14,6 +14,7 @@ const HomeScreen = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<string>('');
 
   // Lấy danh mục gốc
   const rootCategories = useMemo(() => getRootCategories(), [categories, getRootCategories]);
@@ -21,11 +22,17 @@ const HomeScreen = () => {
   const fetchProducts = async (showLoading = true) => {
     try {
       if (showLoading) setIsLoading(true);
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('products')
-        .select('*, profiles(display_name, full_name)')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
+        .select('*, profiles(display_name, full_name, trust_score)')
+        .eq('status', 'approved');
+      
+      if (selectedLocation) {
+        query = query.eq('location', selectedLocation);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       if (data) setProducts(data);
@@ -37,16 +44,20 @@ const HomeScreen = () => {
     }
   };
 
+  useEffect(() => {
+    fetchProducts(true);
+  }, [selectedLocation]);
+
   useFocusEffect(
     useCallback(() => {
       fetchProducts(false);
-    }, [])
+    }, [selectedLocation])
   );
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     fetchProducts(false);
-  }, []);
+  }, [selectedLocation]);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('vi-VN', {
@@ -64,7 +75,12 @@ const HomeScreen = () => {
         contentContainerStyle={{ paddingBottom: 120 }}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={["#FF7524"]} />}
       >
-        <TopNavbar placeholder="Tìm kiếm sản phẩm..." isHome={true} />
+        <TopNavbar 
+          placeholder="Tìm kiếm sản phẩm..." 
+          isHome={true} 
+          selectedLocation={selectedLocation}
+          onLocationChange={setSelectedLocation}
+        />
 
         <View className="mt-2">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
@@ -89,29 +105,51 @@ const HomeScreen = () => {
         </View>
 
         {isLoading && !isRefreshing ? <ActivityIndicator size="large" color="#FF7524" className="mt-10" /> : (
-          <View className="px-4 flex-row flex-wrap justify-between">
-            {products.map((item) => (
-              <View key={item.id} style={{ width: '31.5%', marginBottom: 16 }}>
-                <ProductCard
-                  title={item.title}
-                  price={formatPrice(item.price)}
-                  image={item.image_url || item.images?.[0]}
-                  location={item.location}
-                  onPress={() => router.push({ pathname: '/product', params: { id: item.id } })}
-                />
+          products.length === 0 ? (
+            <View className="px-6 py-20 items-center justify-center">
+              <View className="bg-gray-50 p-8 rounded-[40px] mb-6">
+                <Feather name="shopping-bag" size={48} color="#CCC" />
               </View>
-            ))}
-            {/* View trống để căn lề cho dòng cuối khi dùng justify-between */}
-            {products.length % 3 === 2 && (
-              <View style={{ width: '31.5%', height: 0 }} />
-            )}
-            {products.length % 3 === 1 && (
-              <>
+              <Text className="text-lg font-black text-primary text-center mb-2 uppercase tracking-widest">
+                Ôi, Trống Trơn!
+              </Text>
+              <Text className="text-gray-400 text-center mb-8 px-10 leading-5 font-medium">
+                Không có sản phẩm khu vực này, bạn hãy đăng bán nhéeee.
+              </Text>
+              <TouchableOpacity 
+                onPress={() => router.push('/post')}
+                className="bg-secondary px-8 py-4 rounded-2xl shadow-lg shadow-secondary/20"
+              >
+                <Text className="text-white font-black uppercase text-xs">Đăng bán ngay</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View className="px-4 flex-row flex-wrap justify-between">
+              {products.map((item) => (
+                <View key={item.id} style={{ width: '31.5%', marginBottom: 16 }}>
+                  <ProductCard
+                    title={item.title}
+                    price={formatPrice(item.price)}
+                    image={item.image_url || item.images?.[0]}
+                    location={item.location}
+                    shipping_fee_type={item.shipping_fee_type}
+                    is_trusted={(item.profiles?.trust_score || 0) > 65}
+                    onPress={() => router.push({ pathname: '/product', params: { id: item.id } })}
+                  />
+                </View>
+              ))}
+              {/* View trống để căn lề cho dòng cuối khi dùng justify-between */}
+              {products.length % 3 === 2 && (
                 <View style={{ width: '31.5%', height: 0 }} />
-                <View style={{ width: '31.5%', height: 0 }} />
-              </>
-            )}
-          </View>
+              )}
+              {products.length % 3 === 1 && (
+                <>
+                  <View style={{ width: '31.5%', height: 0 }} />
+                  <View style={{ width: '31.5%', height: 0 }} />
+                </>
+              )}
+            </View>
+          )
         )}
       </ScrollView>
     </SafeAreaView>

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView, Image, Alert, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useCart } from '../context/CartContext';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import Toast from 'react-native-toast-message';
 
 export default function CheckoutScreen() {
   const router = useRouter();
@@ -26,12 +28,20 @@ export default function CheckoutScreen() {
   // HÀM XỬ LÝ ĐẶT HÀNG
   const handlePlaceOrder = async () => {
     if (!user) {
-      Alert.alert("Thông báo", "Bạn cần đăng nhập để đặt hàng");
+      Toast.show({
+        type: 'error',
+        text1: 'Thông báo',
+        text2: 'Bạn cần đăng nhập để đặt hàng'
+      });
       return;
     }
 
     if (selectedItems.length === 0) {
-      Alert.alert("Lỗi", "Giỏ hàng của bạn đang trống");
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi',
+        text2: 'Giỏ hàng của bạn đang trống'
+      });
       return;
     }
 
@@ -39,14 +49,27 @@ export default function CheckoutScreen() {
     try {
       // Duyệt qua từng sản phẩm để tạo đơn hàng
       for (const item of selectedItems) {
-        // 1. Lấy seller_id của sản phẩm này (vì trong cart có thể chưa có)
+        const requestQty = item.qty || 1;
+        
+        // 1. Lấy thông tin sản phẩm và kiểm tra số lượng hiện tại trên db
         const { data: productData, error: productError } = await supabase
           .from('products')
-          .select('seller_id')
+          .select('seller_id, title, quantity')
           .eq('id', item.id)
           .single();
 
         if (productError) throw productError;
+
+        // Kiểm tra tồn kho
+        if (productData.quantity < requestQty) {
+          Toast.show({
+            type: 'error',
+            text1: 'Hết hàng',
+            text2: `Sản phẩm "${productData.title || item.name}" hiện tại chỉ còn ${productData.quantity} sản phẩm.`
+          });
+          setLoading(false);
+          return; // Hủy quá trình đặt hàng
+        }
 
         // 2. Tạo bản ghi đơn hàng
         const { error: orderError } = await supabase
@@ -55,12 +78,25 @@ export default function CheckoutScreen() {
             buyer_id: user.id,
             seller_id: productData.seller_id,
             product_id: item.id,
-            quantity: item.qty || 1,
-            total_price: parsePrice(item.price) * (item.qty || 1) + (shippingFee / selectedItems.length), // Chia đều ship
+            quantity: requestQty,
+            total_price: parsePrice(item.price) * requestQty + (shippingFee / selectedItems.length), // Chia đều ship
             status: 'pending'
           });
 
         if (orderError) throw orderError;
+
+        // 3. Trừ số lượng trên database để tránh bị đặt lặp
+        const newQuantity = productData.quantity - requestQty;
+        const updateData = newQuantity === 0 
+          ? { quantity: newQuantity, status: 'sold' } // Chuyển trạng thái sold để không hiển thị nơi khác
+          : { quantity: newQuantity };
+
+        const { error: updateError } = await supabase
+          .from('products')
+          .update(updateData)
+          .eq('id', item.id);
+
+        if (updateError) throw updateError;
       }
 
       // Thông báo thành công
@@ -70,18 +106,20 @@ export default function CheckoutScreen() {
         clearBoughtItems && clearBoughtItems();
         router.replace('/(tabs)/profile');
       } else {
-        Alert.alert("Thành công 🎉", msg, [
-          {
-            text: "Xem đơn hàng",
-            onPress: () => {
-              clearBoughtItems && clearBoughtItems();
-              router.replace('/my-orders?type=buying');
-            }
-          }
-        ]);
+        Toast.show({
+          type: 'success',
+          text1: 'Thành công 🎉',
+          text2: 'Đơn hàng của bạn đã được hệ thống ghi nhận.',
+        });
+        clearBoughtItems && clearBoughtItems();
+        router.replace('/my-orders?type=buying');
       }
     } catch (error: any) {
-      Alert.alert("Lỗi đặt hàng", error.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi đặt hàng',
+        text2: error.message
+      });
     } finally {
       setLoading(false);
     }

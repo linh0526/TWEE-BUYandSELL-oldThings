@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, TextInput, LayoutAnimation, Platform, UIManager } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, TextInput, LayoutAnimation, Platform, UIManager, Modal, ScrollView } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCart } from '../context/CartContext';
+import { VIETNAM_PROVINCES } from '@/constants/locations';
 
 interface TopNavbarProps {
   placeholder?: string;
@@ -11,6 +12,8 @@ interface TopNavbarProps {
   title?: string;
   onBack?: () => void;
   hideIcons?: boolean;
+  selectedLocation?: string;
+  onLocationChange?: (location: string) => void;
 }
 
 export default function TopNavbar({ 
@@ -19,16 +22,19 @@ export default function TopNavbar({
   isExplore = false,
   title,
   onBack,
-  hideIcons = false
+  hideIcons = false,
+  selectedLocation,
+  onLocationChange
 }: TopNavbarProps) {
   const router = useRouter();
-  const [query, setQuery] = React.useState('');
-  const [isSearchExpanded, setIsSearchExpanded] = React.useState(false);
-  const inputRef = React.useRef<TextInput>(null);
+  const [query, setQuery] = useState('');
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [isLocationModalVisible, setIsLocationModalVisible] = useState(false);
+  const inputRef = useRef<TextInput>(null);
 
     const { cartItems } = useCart();
 
-  const totalItems = cartItems.reduce((sum, item) => sum + (item.qty || 1), 0);
+  const totalItems = cartItems.reduce((sum: number, item: any) => sum + (item.qty || 1), 0);
 
   const handleSearch = () => {
     if (query.trim()) {
@@ -89,6 +95,16 @@ export default function TopNavbar({
             ) :
             (
               <View className="flex-1 flex-row items-center">
+                <TouchableOpacity 
+                  onPress={() => setIsLocationModalVisible(true)}
+                  className="flex-row items-center bg-gray-50 px-3 py-2 rounded-xl"
+                >
+                  <Feather name="map-pin" size={14} color="#FF7524" />
+                  <Text className="ml-1.5 text-[10px] font-black text-primary uppercase" numberOfLines={1} style={{ maxWidth: 80 }}>
+                    {selectedLocation || 'Vị trí'}
+                  </Text>
+                  <Feather name="chevron-down" size={12} color="#999" className="ml-1" />
+                </TouchableOpacity>
               </View>
             )
           }
@@ -152,6 +168,52 @@ export default function TopNavbar({
           </View>
         )}
       </View>
+
+      {/* Location Selection Modal */}
+      <Modal visible={isLocationModalVisible} animationType="slide" transparent>
+        <View className="flex-1 bg-black/40 justify-end">
+          <View className="bg-white rounded-t-[40px] h-[70%]">
+            <View className="p-6 flex-1">
+              <View className="flex-row justify-between items-center mb-6">
+                <Text className="text-lg font-black uppercase tracking-widest text-primary">Chọn Khu Vực</Text>
+                <TouchableOpacity onPress={() => setIsLocationModalVisible(false)} className="p-2">
+                  <Feather name="x" size={24} color="black" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <TouchableOpacity 
+                   onPress={() => {
+                     onLocationChange?.('');
+                     setIsLocationModalVisible(false);
+                   }}
+                   className={`p-4 rounded-2xl mb-2 flex-row justify-between items-center ${!selectedLocation ? 'bg-secondary/10 border border-secondary' : 'bg-gray-50'}`}
+                >
+                  <Text className={`font-black text-xs uppercase ${!selectedLocation ? 'text-secondary' : 'text-primary'}`}>
+                    Toàn quốc
+                  </Text>
+                  {!selectedLocation && <Feather name="check" size={16} color="#FF7524" />}
+                </TouchableOpacity>
+
+                <View className="flex-row flex-wrap">
+                  {VIETNAM_PROVINCES.map(p => (
+                    <TouchableOpacity 
+                      key={p} 
+                      onPress={() => { 
+                        onLocationChange?.(p); 
+                        setIsLocationModalVisible(false); 
+                      }} 
+                      className={`mr-2 mb-2 px-5 py-3 rounded-2xl border ${selectedLocation === p ? 'bg-secondary border-secondary' : 'bg-gray-50 border-gray-100'}`}
+                    >
+                      <Text className={`text-xs font-bold ${selectedLocation === p ? 'text-white' : 'text-primary'}`}>{p}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {isHome && !isSearchExpanded && (
         <View className="px-6 pb-4">

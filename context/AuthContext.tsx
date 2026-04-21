@@ -8,6 +8,7 @@ interface Profile {
   display_name: string | null;
   full_name: string | null;
   avatar_url: string | null;
+  shop_description: string | null;
   phone_number: string | null;
   phone_verified: boolean;
   trust_score: number;

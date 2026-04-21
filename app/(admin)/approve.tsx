@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, FlatList, Modal, Dimensions } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, FlatList, Modal, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
+import { useState, useEffect } from 'react';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 
@@ -51,7 +52,11 @@ export default function AdminApproveScreen() {
       setProducts(data || []);
     } catch (error: any) {
       console.error('Error fetching products:', error);
-      Alert.alert('Lỗi', 'Không thể tải danh sách tin đăng');
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi',
+        text2: 'Không thể tải danh sách tin đăng'
+      });
     } finally {
       setLoading(false);
     }
@@ -71,9 +76,17 @@ export default function AdminApproveScreen() {
       setProducts(prev => prev.filter(p => p.id !== id));
       setSelectedProduct(null); // Close modal if open
       
-      Alert.alert('Thành công', `Đã ${newStatus === 'approved' ? 'duyệt' : 'từ chối'} tin đăng này.`);
+      Toast.show({
+        type: 'success',
+        text1: 'Thành công',
+        text2: `Đã ${newStatus === 'approved' ? 'duyệt' : 'từ chối'} tin đăng này.`
+      });
     } catch (error: any) {
-      Alert.alert('Lỗi', error.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi',
+        text2: error.message
+      });
     } finally {
       setActionLoading(null);
     }
@@ -90,14 +103,19 @@ export default function AdminApproveScreen() {
         <Image 
           source={
             (Array.isArray(item.images) && item.images.length > 0) 
-              ? item.images[0] 
-              : 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800'
+              ? { uri: item.images[0] }
+              : undefined
           } 
-          style={{ width: '100%', height: '100%' }}
+          style={{ width: '100%', height: '100%', backgroundColor: '#F8F9FA' }}
           contentFit="cover"
           transition={200}
           priority="high"
         />
+        {(!(Array.isArray(item.images) && item.images.length > 0)) && (
+          <View className="absolute inset-0 items-center justify-center bg-gray-50">
+            <Feather name="image" size={32} color="#DDD" />
+          </View>
+        )}
         <View className="absolute top-4 left-4 bg-black/50 px-3 py-1 rounded-full">
           <Text className="text-white text-[10px] font-bold uppercase tracking-widest">{item.condition}</Text>
         </View>

@@ -39,9 +39,13 @@ CREATE TABLE IF NOT EXISTS profiles (
   display_name TEXT,
   full_name TEXT,
   avatar_url TEXT,
+  shop_description TEXT,
+  location TEXT,
   phone_number TEXT,
   phone_verified BOOLEAN DEFAULT FALSE,
-  trust_score INT DEFAULT 0, -- Điểm tin cậy bắt đầu từ 0
+  trust_score INT DEFAULT 30, -- Mặc định 30 điểm khi tham gia
+  transaction_points INT DEFAULT 0, -- Tối đa 20 điểm từ mua/bán (mỗi lần +1)
+  review_points INT DEFAULT 0, -- Tối đa 15 điểm từ đánh giá (mỗi lần +1)
   is_admin BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -96,6 +100,16 @@ CREATE TABLE IF NOT EXISTS notifications (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 7. Bảng Đánh giá (Reviews)
+CREATE TABLE IF NOT EXISTS reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  shop_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+  comment TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Kích hoạt RLS (Bảo mật mức hàng)
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subcategories ENABLE ROW LEVEL SECURITY;
@@ -104,6 +118,7 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 
 -- CÁC CHÍNH SÁCH RLS CƠ BẢN
 -- Công khai: Danh mục, Danh mục con, Sản phẩm đã duyệt
@@ -111,6 +126,7 @@ CREATE POLICY "Public read categories" ON categories FOR SELECT USING (true);
 CREATE POLICY "Public read subcategories" ON subcategories FOR SELECT USING (true);
 CREATE POLICY "Public read sub_items" ON sub_items FOR SELECT USING (true);
 CREATE POLICY "Public read approved products" ON products FOR SELECT USING (status = 'approved');
+CREATE POLICY "Public read reviews" ON reviews FOR SELECT USING (true);
 
 -- Cá nhân: Profile của chính mình
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
@@ -118,6 +134,12 @@ CREATE POLICY "Users can update own profile" ON profiles FOR UPDATE USING (auth.
 
 -- Sản phẩm: Seller có thể quản lý sản phẩm của mình
 CREATE POLICY "Sellers can manage own products" ON products FOR ALL USING (auth.uid() = seller_id);
+
+-- Đơn hàng: Phân quyền cho Buyer và Seller
+CREATE POLICY "Users can view own buying orders" ON orders FOR SELECT USING (auth.uid() = buyer_id);
+CREATE POLICY "Users can view own selling orders" ON orders FOR SELECT USING (auth.uid() = seller_id);
+CREATE POLICY "Buyers can insert orders" ON orders FOR INSERT WITH CHECK (auth.uid() = buyer_id);
+CREATE POLICY "Sellers can update order status" ON orders FOR UPDATE USING (auth.uid() = seller_id);
 
 -- TRIGGERS
 -- Tự động tạo profile khi đăng ký mới
@@ -128,13 +150,56 @@ BEGIN
   VALUES (
     new.id, 
     new.email, 
-    new.raw_user_meta_data->>'display_name',
+    COALESCE(new.raw_user_meta_data->>'display_name', split_part(new.email, '@', 1)), 
     new.raw_user_meta_data->>'full_name',
-    (new.raw_user_meta_data->>'trust_score')::int
+    30 -- Mặc định 30 điểm khi mới tham gia
   );
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Logic cộng điểm tin cậy từ đơn hàng (Mua/Bán thành công)
+CREATE OR REPLACE FUNCTION update_trust_score_on_order()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'completed' AND OLD.status != 'completed' THEN
+    -- Tăng điểm người mua
+    UPDATE profiles 
+    SET transaction_points = LEAST(transaction_points + 1, 20),
+        trust_score = 30 + LEAST(transaction_points + 1, 20) + review_points
+    WHERE id = NEW.buyer_id;
+    
+    -- Tăng điểm người bán
+    UPDATE profiles 
+    SET transaction_points = LEAST(transaction_points + 1, 20),
+        trust_score = 30 + LEAST(transaction_points + 1, 20) + review_points
+    WHERE id = NEW.seller_id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_order_completed
+  AFTER UPDATE ON orders
+  FOR EACH ROW
+  EXECUTE PROCEDURE update_trust_score_on_order();
+
+-- Logic cộng điểm tin cậy từ đánh giá (Viết đánh giá)
+CREATE OR REPLACE FUNCTION update_trust_score_on_review()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE profiles 
+  SET review_points = LEAST(review_points + 1, 15),
+      trust_score = 30 + transaction_points + LEAST(review_points + 1, 15)
+  WHERE id = NEW.user_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_review_created
+  AFTER INSERT ON reviews
+  FOR EACH ROW
+  EXECUTE PROCEDURE update_trust_score_on_review();
 
 CREATE OR REPLACE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import Toast from 'react-native-toast-message';
 
 const SignupScreen = () => {
   const router = useRouter();
@@ -15,7 +16,7 @@ const SignupScreen = () => {
 
   const handleSignup = async () => {
     if (!email || !password || !fullName) {
-      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin');
+      Toast.show({ type: 'error', text1: 'Lỗi', text2: 'Vui lòng điền đầy đủ thông tin' });
       return;
     }
 
@@ -33,14 +34,15 @@ const SignupScreen = () => {
     });
 
     if (error) {
-      Alert.alert('Đăng ký thất bại', error.message);
+      Toast.show({ type: 'error', text1: 'Đăng ký thất bại', text2: error.message });
       setLoading(false);
     } else {
-      Alert.alert(
-        'Thành công',
-        'Tài khoản của bạn đã được tạo. Chào mừng bạn đến với Twee!',
-        [{ text: 'Bắt đầu ngay', onPress: () => router.replace('/(tabs)') }]
-      );
+      Toast.show({ 
+        type: 'success', 
+        text1: 'Thành công', 
+        text2: 'Tài khoản đã được tạo. Chào mừng bạn!' 
+      });
+      router.replace('/(tabs)');
     }
   };
 
