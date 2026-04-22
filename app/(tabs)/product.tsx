@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Dimensions, StyleSheet, Platf
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { PRODUCT_CONDITIONS } from '@/constants/product';
@@ -22,12 +22,13 @@ export default function ProductDetailScreen() {
   const [product, setProduct] = React.useState<any>(null);
   const [seller, setSeller] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
+  const [isFavorited, setIsFavorited] = React.useState(false);
   const [showLoginModal, setShowLoginModal] = React.useState(false);
   const [showConditionModal, setShowConditionModal] = React.useState(false);
 
   React.useEffect(() => {
     fetchData();
-  }, [params.id]);
+  }, [params.id, user?.id]);
 
   const fetchData = async () => {
     try {
@@ -42,7 +43,19 @@ export default function ProductDetailScreen() {
       if (prodError) throw prodError;
       setProduct(prodData);
 
-      // 2. Lấy thông tin người bán
+      // 2. Kiểm tra xem đã yêu thích chưa
+      if (user?.id) {
+        const { data: favData } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('product_id', params.id)
+          .maybeSingle();
+
+        setIsFavorited(!!favData);
+      }
+
+      // 3. Lấy thông tin người bán
       if (prodData?.seller_id) {
         const { data: sellerData, error: sellerError } = await supabase
           .from('profiles')
@@ -60,6 +73,66 @@ export default function ProductDetailScreen() {
   };
 
   const isOwnProduct = user?.id === product?.seller_id;
+
+  const handleToggleFavorite = async () => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    if (isOwnProduct) {
+      Toast.show({
+        type: 'info',
+        text1: 'Thông báo',
+        text2: 'Bạn không thể lưu tin đăng của chính mình.'
+      });
+      return;
+    }
+
+    // Optimistic Update: Cập nhật UI ngay lập tức
+    const previousState = isFavorited;
+    setIsFavorited(!previousState);
+
+    try {
+      if (previousState) {
+        const { error } = await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('product_id', product.id);
+
+        if (error) throw error;
+        Toast.show({
+          type: 'success',
+          text1: 'Thành công',
+          text2: 'Đã xóa khỏi tin đã lưu.'
+        });
+      } else {
+        const { error } = await supabase
+          .from('favorites')
+          .insert({
+            user_id: user.id,
+            product_id: product.id
+          });
+
+        if (error) throw error;
+        Toast.show({
+          type: 'success',
+          text1: 'Thành công',
+          text2: 'Đã thêm vào tin đã lưu.'
+        });
+      }
+    } catch (error) {
+      // Hoàn tác nếu lỗi
+      setIsFavorited(previousState);
+      console.error('Lỗi khi xử lý yêu thích:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi',
+        text2: 'Không thể thực hiện thao tác này.'
+      });
+    }
+  };
 
   const handleAddToCart = () => {
     if (!user) {
@@ -238,8 +311,15 @@ export default function ProductDetailScreen() {
               </View>
               <Text className="text-[9px] font-black text-primary/30 uppercase tracking-[0.1em]">Giá niêm yết</Text>
             </View>
-            <TouchableOpacity className="w-12 h-12 bg-white rounded-full items-center justify-center shadow-sm border border-black/5">
-                <Feather name="heart" size={22} color="#FF7524" />
+            <TouchableOpacity
+              onPress={handleToggleFavorite}
+              className="w-12 h-12 bg-white rounded-full items-center justify-center shadow-sm border border-black/5"
+            >
+                <Ionicons
+                  name={isFavorited ? "heart" : "heart-outline"}
+                  size={26}
+                  color={isFavorited ? "#FF3B30" : "#FF7524"}
+                />
             </TouchableOpacity>
           </View>
 

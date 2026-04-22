@@ -16,6 +16,7 @@ interface ProductCardProps {
   hideLocation?: boolean;
   shipping_fee_type?: string;
   is_trusted?: boolean;
+  isFavorited?: boolean;
 }
 
 const ProductCard = ({ 
@@ -27,7 +28,8 @@ const ProductCard = ({
   location = 'Toàn quốc', 
   shipping_fee_type,
   is_trusted,
-  onPress, 
+  isFavorited,
+  onPress,
   hideTitle, 
   hideLocation 
 }: ProductCardProps) => {
@@ -70,6 +72,13 @@ const ProductCard = ({
             </View>
           )}
         </View>
+
+        {/* Favorite Icon - Top Right */}
+        {isFavorited && (
+          <View className="absolute top-1.5 right-1.5 bg-white/80 p-1.5 rounded-full shadow-sm">
+             <Feather name="heart" size={12} color="#FF3B30" fill="#FF3B30" />
+          </View>
+        )}
 
         {/* Price Tag - Bottom Left */}
         <View className="absolute bottom-2 left-2 bg-secondary px-1.5 py-1 rounded-lg shadow-lg">

@@ -7,6 +7,7 @@ import TopNavbar from '@/components/TopNavbar';
 import HomeBanner from '@/components/HomeBanner';
 import { useCategoryStore } from '@/lib/store/useCategoryStore';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -14,9 +15,11 @@ const RECENT_VIEWED_KEY = '@recently_viewed';
 
 const HomeScreen = () => {
   const router = useRouter();
+  const { user } = useAuth();
   const { getRootCategories, categories, fetchCategories } = useCategoryStore();
   const [products, setProducts] = useState<any[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
+  const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<string>('');
@@ -44,6 +47,21 @@ const HomeScreen = () => {
 
       if (error) throw error;
       if (data) setProducts(data);
+
+      // Fetch user favorites
+      if (user?.id) {
+        const { data: favs } = await supabase
+          .from('favorites')
+          .select('product_id')
+          .eq('user_id', user.id);
+
+        if (favs) {
+          setUserFavorites(favs.map(f => f.product_id));
+        }
+      } else {
+        setUserFavorites([]);
+      }
+
     } catch (error) {
       console.error('Lỗi lấy dữ liệu:', error);
     } finally {
@@ -65,20 +83,20 @@ const HomeScreen = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedLocation]);
+  }, [selectedLocation, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
       fetchData(false);
       loadRecentlyViewed();
-    }, [selectedLocation])
+    }, [selectedLocation, user?.id])
   );
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     fetchData(false);
     loadRecentlyViewed();
-  }, [selectedLocation]);
+  }, [selectedLocation, user?.id]);
 
   const formatPrice = (price: any) => {
     const numPrice = typeof price === 'string' ? parseFloat(price.replace(/[^0-9.-]+/g,"")) : price;
@@ -193,6 +211,7 @@ const HomeScreen = () => {
                     price={formatPrice(item.price)}
                     image={item.image_url || (item.images && item.images[0])}
                     location={item.location}
+                    isFavorited={userFavorites.includes(item.id)}
                     onPress={() => router.push({ pathname: '/product', params: { id: item.id } })}
                   />
                 </View>

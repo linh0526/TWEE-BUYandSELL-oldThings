@@ -157,12 +157,18 @@ export default function ExploreScreen() {
               {rootIds.map((id) => {
                 const cat = categories[id];
                 return (
-                  <View key={id} style={{ width: '33.33%', padding: 4 }}>
-                    <TouchableOpacity activeOpacity={0.8} onPress={() => handleSetCategory(id)} className="mb-4">
-                      <View className="w-full rounded-2xl overflow-hidden mb-2 bg-white border border-black/5" style={{ height: 100 }}>
+                  <View key={id} style={{ width: '50%', padding: 6 }}>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      onPress={() => handleSetCategory(id)}
+                      className="mb-4 bg-white rounded-[24px] overflow-hidden border border-black/5 shadow-sm"
+                    >
+                      <View className="w-full h-24">
                         <Image source={{ uri: cat.image_url ?? undefined }} className="w-full h-full" resizeMode="cover" />
                       </View>
-                      <Text className="text-[9px] font-black uppercase text-center text-primary tracking-widest">{cat.name}</Text>
+                      <View className="py-3 px-2 bg-white items-center">
+                        <Text className="text-[10px] font-black uppercase text-primary tracking-widest" numberOfLines={1}>{cat.name}</Text>
+                      </View>
                     </TouchableOpacity>
                   </View>
                 );

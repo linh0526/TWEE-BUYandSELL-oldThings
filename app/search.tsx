@@ -7,6 +7,7 @@ import { PRODUCT_CONDITIONS } from '@/constants/product';
 import { useCategoryStore } from '@/lib/store/useCategoryStore';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/context/AuthContext';
 import ProductCard from '@/components/ProductCard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -17,11 +18,13 @@ const { height } = Dimensions.get('window');
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { q, categoryId: initialCatId, sellerId } = useLocalSearchParams<{ q?: string, categoryId?: string, sellerId?: string }>();
   
   // State cơ bản
   const [searchQuery, setSearchQuery] = useState(q || '');
   const [products, setProducts] = useState<any[]>([]);
+  const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [sellerName, setSellerName] = useState<string | null>(null);
@@ -162,6 +165,8 @@ export default function SearchScreen() {
 
   // Hàm lấy dữ liệu từ Supabase
   const fetchProducts = useCallback(async () => {
+    if (!isLoaded) return;
+
     try {
       setLoading(true);
       let query = supabase
@@ -176,8 +181,17 @@ export default function SearchScreen() {
       if (searchQuery) query = query.ilike('title', `%${searchQuery}%`);
 
       if (currentLevelId !== 'all') {
-        const allDescendants = [currentLevelId, ...getAllChildrenIds(currentLevelId)];
-        query = query.in('category_id', allDescendants);
+        const cat = getCategoryById(currentLevelId);
+        if (cat) {
+            // Lọc theo đúng cột dựa trên cấp độ của danh mục
+            if (cat.level === 0) {
+                query = query.eq('category_id', cat.id);
+            } else if (cat.level === 1) {
+                query = query.eq('subcategory_id', cat.id);
+            } else if (cat.level === 2) {
+                query = query.eq('sub_item_id', cat.id);
+            }
+        }
       }
 
       if (filterCondition) query = query.eq('condition', filterCondition);
@@ -192,12 +206,26 @@ export default function SearchScreen() {
       const { data, error } = await query;
       if (error) throw error;
       setProducts(data || []);
+
+      // Fetch user favorites for heart icons
+      if (user?.id) {
+        const { data: favs } = await supabase
+          .from('favorites')
+          .select('product_id')
+          .eq('user_id', user.id);
+
+        if (favs) {
+          setUserFavorites(favs.map(f => f.product_id));
+        }
+      } else {
+        setUserFavorites([]);
+      }
     } catch (error) {
       console.error('Fetch products error:', error);
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, currentLevelId, filterCondition, location, priceRange, sortBy, getAllChildrenIds]);
+  }, [searchQuery, currentLevelId, filterCondition, location, priceRange, sortBy, getAllChildrenIds, user?.id, isLoaded, getCategoryById]);
 
   useEffect(() => {
     let active = true;
@@ -322,6 +350,7 @@ export default function SearchScreen() {
                     image={item.image_url || item.images?.[0]}
                     location={item.location}
                     shipping_fee_type={item.shipping_fee_type}
+                    isFavorited={userFavorites.includes(item.id)}
                     is_trusted={(item.profiles?.trust_score || 0) > 65}
                     onPress={() => router.push({ pathname: '/product', params: { id: item.id } })}
                   />

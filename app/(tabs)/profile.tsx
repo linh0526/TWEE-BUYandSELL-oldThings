@@ -16,6 +16,7 @@ export default function ProfileScreen() {
   const { user, profile, signOut, loading: authLoading, refreshProfile } = useAuth();
   const [listingCount, setListingCount] = useState(0);
   const [buyingCount, setBuyingCount] = useState(0);
+  const [favoriteCount, setFavoriteCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'MUA' | 'BÁN'>('MUA');
@@ -53,6 +54,14 @@ export default function ProfileScreen() {
         .select('*', { count: 'exact', head: true })
         .eq('buyer_id', user.id);
       setBuyingCount(bCount || 0);
+
+      // Đếm số tin đã lưu
+      const { count: fCount } = await supabase
+        .from('favorites')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      setFavoriteCount(fCount || 0);
+
     } catch (error) {
       console.error('Lỗi lấy thống kê:', error);
     } finally {
@@ -338,8 +347,8 @@ export default function ProfileScreen() {
           <View className="mb-8 bg-gray-50/55 rounded-[32px]">
             {[
               { icon: <Feather name="package" size={18} color="#FF7524" />, label: 'Tin đăng của tôi', count: listingCount, onPress: () => router.push({ pathname: '/my-orders', params: { type: 'selling' } } as any) },
-              { icon: <Feather name="heart" size={18} color="#FF7524" />, label: 'Tin đã lưu', count: 0, onPress: () => {} },
-              { icon: <Feather name="message-square" size={18} color="#FF7524" />, label: 'Tin nhắn', count: 0, onPress: () => router.push('/chat' as any)},
+              { icon: <Feather name="heart" size={18} color="#FF7524" />, label: 'Tin đã lưu', count: favoriteCount, onPress: () => router.push('/saved-items' as any) },
+              { icon: <Feather name="message-square" size={18} color="#FF7524" />, label: 'Tin nhắn', count: 0, onPress: () => router.push('/chat' as any) },
               { icon: <Feather name="settings" size={18} color="#FF7524" />, label: 'Cài đặt tài khoản', onPress: () => router.push('/settings' as any) },
             ].map((item, index) => (
               <TouchableOpacity 
