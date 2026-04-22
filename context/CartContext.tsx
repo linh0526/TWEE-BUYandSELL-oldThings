@@ -22,6 +22,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           *,
           products (
             *,
+            shipping_fee_type,
             profiles:seller_id (
               display_name,
               full_name
@@ -40,6 +41,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           qty: item.quantity,
           stock: item.products.quantity,
           checked: true,
+          shipping_fee_type: item.products.shipping_fee_type,
           shop: item.products.profiles?.display_name || item.products.profiles?.full_name || 'Người bán Twee',
         }));
         setCartItems(formatted);

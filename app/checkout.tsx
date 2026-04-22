@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Image, StyleSheet, ActivityIndicator, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
@@ -14,10 +14,12 @@ export default function CheckoutScreen() {
   const { user } = useAuth();
   const { cartItems, clearBoughtItems } = useCart();
   const [loading, setLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('cod');
 
   const selectedItems = cartItems.filter((item: any) => item.checked);
-  const hasShippingFee = selectedItems.some((item: any) => item.shipping_fee_type === 'buyer_pays');
-  const shippingFee = hasShippingFee ? 15000 : 0;
+  const shippingFee = selectedItems.reduce((sum: number, item: any) => {
+    return item.shipping_fee_type === 'buyer_pays' ? sum + 15000 : sum;
+  }, 0);
 
   const parsePrice = (price: any) => {
     if (typeof price === 'number') return price;
@@ -27,8 +29,68 @@ export default function CheckoutScreen() {
   const subtotal = selectedItems.reduce((sum: number, item: any) => sum + (parsePrice(item.price) * (item.qty || 1)), 0);
   const total = subtotal + shippingFee;
 
-  // HÀM XỬ LÝ ĐẶT HÀNG
+  // Thêm state lưu thông tin người nhận
+  const [profile, setProfile] = useState({
+    name: 'Đang tải...',
+    phone: '',
+    address: ''
+  });
+
+  // Hàm lấy profile từ database
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, phone, address')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && data) {
+        setProfile({
+          name: data.full_name || 'Chưa cập nhật tên',
+          phone: data.phone || 'Chưa cập nhật SĐT',
+          address: data.address || 'Chưa cập nhật địa chỉ'
+        });
+      }
+    };
+    fetchProfile();
+  }, [user]);
+
+  // Hàm chọn phương thức thanh toán
+  const paymentOptions = [
+    {
+      id: 'cod',
+      title: 'Thanh toán khi nhận hàng',
+      subTitle: 'Thanh toán bằng tiền mặt khi nhận hàng',
+      icon: 'truck' as const,
+      status: 'active'
+    },
+    {
+      id: 'banking',
+      title: 'Chuyển khoản Ngân hàng',
+      subTitle: 'Thanh toán qua mã QR (Đang bảo trì)',
+      icon: 'home' as const,
+      status: 'maintenance'
+    }
+  ];
+
+  // Hàm xử lý chọn phương thức thanh toán
+  const handleSelectPayment = (method: any) => {
+    if (method.status === 'maintenance') {
+      Alert.alert(
+        "Thông báo hệ thống",
+        "Phương thức Chuyển khoản hiện đang được nâng cấp. Bạn vui lòng sử dụng COD để hoàn tất đơn hàng nhé!",
+        [{ text: "Đã hiểu", style: "default" }]
+      );
+      return;
+    }
+    setPaymentMethod(method.id);
+  };
+
+  // Hàm xử lý đặt hàng
   const handlePlaceOrder = async () => {
+    // Kiểm tra đăng nhập
     if (!user) {
       Toast.show({
         type: 'error',
@@ -38,6 +100,35 @@ export default function CheckoutScreen() {
       return;
     }
 
+    // Kiểm tra thông tin tài khoản
+    const isProfileIncomplete =
+      !profile.phone ||
+      !profile.address ||
+      profile.name === 'Chưa cập nhật tên' ||
+      profile.phone === 'Chưa cập nhật SĐT' ||
+      profile.address === 'Chưa cập nhật địa chỉ';
+
+    if (isProfileIncomplete) {
+      // Hiển thị thông báo khi thiếu thông tin để đặt hàng
+      Alert.alert(
+        "Thông tin chưa đầy đủ",
+        "Chúng mình cần Tên, SĐT và Địa chỉ của bạn để có thể giao hàng. Bạn hãy bổ sung ở mục Tài khoản nhé!",
+        [
+          {
+            text: "Để sau",
+            style: "cancel"
+          },
+          {
+            text: "Cập nhật ngay",
+            onPress: () => router.push('/(tabs)/profile'), // Đẩy khách sang trang cá nhân
+            style: "default"
+          }
+        ]
+      );
+      return; // Ngăn không cho đặt hàng
+    }
+
+    // Kiểm tra giỏ hàng
     if (selectedItems.length === 0) {
       Toast.show({
         type: 'error',
@@ -81,8 +172,14 @@ export default function CheckoutScreen() {
             seller_id: productData.seller_id,
             product_id: item.id,
             quantity: requestQty,
-            total_price: parsePrice(item.price) * requestQty + (shippingFee / selectedItems.length), // Chia đều ship
-            status: 'pending'
+            customer_name: profile.name,
+            phone_number: profile.phone,
+            address: profile.address,
+            shipping_fee: item.shipping_fee_type === 'buyer_pays' ? 15000 : 0,
+            total_price: (parsePrice(item.price) * requestQty) + (item.shipping_fee_type === 'buyer_pays' ? 15000 : 0),
+            status: 'pending',
+            payment_method: paymentMethod,
+            is_paid: false
           })
           .select()
           .single();
@@ -157,9 +254,25 @@ export default function CheckoutScreen() {
             <Feather name="map-pin" size={18} color="#FF7524" />
             <Text style={styles.sectionTitle}>Địa chỉ nhận hàng</Text>
           </View>
-          <Text style={styles.addressName}>Nguyễn Văn A</Text>
-          <Text style={styles.phone}>(+84) 123 456 789</Text>
-          <Text style={styles.addressText}>Quận 12, TP. Hồ Chí Minh</Text>
+          <Text style={[styles.addressName, (profile.name?.includes('Chưa') || !profile.name) && {color: '#999'}]}>
+            {profile.name}
+          </Text>
+          <Text style={[styles.phone, (profile.phone?.includes('Chưa') || !profile.phone) && {color: '#999'}]}>
+            {profile.phone}
+          </Text>
+          <Text style={[styles.addressText, (profile.address?.includes('Chưa') || !profile.address) && {color: '#999'}]}>
+            {profile.address}
+          </Text>
+
+          {/* Nhắc nhở người dùng nếu thiếu thông tin */}
+          {(profile.phone?.includes('Chưa') || profile.address?.includes('Chưa') || !profile.phone || !profile.address) && (
+            <View style={{marginTop: 10, padding: 8, backgroundColor: '#FFF5F5', borderRadius: 4, flexDirection: 'row', alignItems: 'center'}}>
+              <Feather name="alert-circle" size={14} color="#E53E3E" />
+              <Text style={{ color: '#E53E3E', fontSize: 12, marginLeft: 6, fontWeight: '500' }}>
+                Vui lòng bổ sung thông tin để đặt hàng
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Group by shop */}
@@ -189,10 +302,40 @@ export default function CheckoutScreen() {
             <Feather name="credit-card" size={18} color="#FF7524" />
             <Text style={styles.sectionTitle}>Phương thức thanh toán</Text>
           </View>
-          <View style={styles.paymentOption}>
-            <Text>Thanh toán khi nhận hàng (COD)</Text>
-            <Feather name="check-circle" size={20} color="#FF7524" />
-          </View>
+          {paymentOptions.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              onPress={() => handleSelectPayment(item)}
+              style={[
+                styles.paymentOptionItem,
+                paymentMethod === item.id && styles.paymentOptionActive,
+                item.status === 'maintenance' && { opacity: 0.6 }
+              ]}
+            >
+              <View style={[
+                styles.paymentIconBox,
+                paymentMethod === item.id ? { backgroundColor: '#FF7524' } : { backgroundColor: '#E5E7EB' }
+              ]}>
+                <Feather name={item.icon as any} size={18} color="white" />
+              </View>
+
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[
+                  styles.paymentTitle,
+                  paymentMethod === item.id ? { color: '#FF7524' } : { color: '#374151' }
+                ]}>
+                  {item.title}
+                </Text>
+                <Text style={styles.paymentSubTitle}>{item.subTitle}</Text>
+              </View>
+
+              <Feather
+                name={paymentMethod === item.id ? "check-circle" : "circle"}
+                size={20}
+                color={paymentMethod === item.id ? "#FF7524" : "#D1D5DB"}
+              />
+            </TouchableOpacity>
+          ))}
         </View>
 
         <View style={styles.section}>
@@ -202,9 +345,18 @@ export default function CheckoutScreen() {
           </View>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Phí vận chuyển</Text>
-            <Text style={shippingFee === 0 ? { color: '#22C55E', fontWeight: 'bold' } : {}}>
-              {shippingFee === 0 ? 'Miễn phí' : `${shippingFee.toLocaleString()}đ`}
-            </Text>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={shippingFee === 0 ? { color: '#22C55E', fontWeight: 'bold' } : {}}>
+                {shippingFee === 0 ? 'Miễn phí' : `${shippingFee.toLocaleString()}đ`}
+              </Text>
+
+              {/* Dòng chú thích nhỏ để giải thích logic cho người dùng */}
+              {shippingFee > 0 && (
+                <Text style={{ fontSize: 10, color: '#9CA3AF', marginTop: 2 }}>
+                  ({selectedItems.filter((i: any) => i.shipping_fee_type === 'buyer_pays').length} kiện hàng có phí)
+                </Text>
+              )}
+            </View>
           </View>
           <View style={styles.priceRowTotal}>
             <Text style={styles.totalLabel}>Tổng thanh toán</Text>
@@ -260,4 +412,9 @@ const styles = StyleSheet.create({
   footerPrice: { fontSize: 18, fontWeight: 'bold', color: '#FF7524' },
   orderButton: { backgroundColor: '#FF7524', paddingHorizontal: 30, paddingVertical: 12, borderRadius: 4, minWidth: 120, alignItems: 'center' },
   orderButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  paymentOptionItem: { flexDirection: 'row', alignItems: 'center', padding: 12, marginBottom: 10, borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', backgroundColor: '#F9FAFB', },
+  paymentOptionActive: { borderColor: '#FF7524', backgroundColor: '#FFF5F0', },
+  paymentIconBox: { padding: 8, borderRadius: 10, },
+  paymentTitle: { fontWeight: 'bold', fontSize: 13, },
+  paymentSubTitle: { fontSize: 10, color: '#9CA3AF', marginTop: 2, },
 });

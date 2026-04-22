@@ -32,6 +32,9 @@ export default function OrderDetailScreen() {
         .from('orders')
         .select(`
           *,
+          address,
+          phone_number,
+          customer_name,
           products:product_id (*),
           buyer:buyer_id (full_name, email, display_name, phone),
           seller:seller_id (full_name, email, display_name)
@@ -313,17 +316,16 @@ export default function OrderDetailScreen() {
            
            <View className="ml-11">
               <Text className="text-black font-black text-base mb-1">
-                {order.buyer?.display_name || order.buyer?.full_name || 'Người dùng Twee'}
+                {order.customer_name || 'Người dùng Twee'}
               </Text>
               <Text className="text-gray-500 font-bold text-sm leading-5 mb-2">
-                {order.shipping_address || 'Chưa cung cấp địa chỉ'}
+                {order.address || 'Chưa cung cấp địa chỉ'}
               </Text>
-              
-              {/* Giả định số điện thoại có thể nằm trong profile của buyer */}
+
               <View className="flex-row items-center">
                  <Feather name="phone" size={12} color="#9ca3af" />
                  <Text className="text-gray-400 font-bold text-xs ml-2">
-                   {order.buyer?.phone || 'Chưa có số điện thoại'}
+                   {order.phone_number || 'Chưa có số điện thoại'}
                  </Text>
               </View>
               {/* Nút hành động cho địa chỉ/SĐT */}

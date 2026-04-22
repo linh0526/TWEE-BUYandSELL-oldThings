@@ -66,7 +66,9 @@ export default function CartScreen() {
     .filter((item: any) => item.checked)
     .reduce((sum: number, item: any) => {
       const price = parsePrice(item.price);
-      return sum + (price * (item.qty || 1));
+      // Cộng tiền hàng + phí ship (món nào buyer_pays thì cộng 15k)
+      const shipPerItem = item.shipping_fee_type === 'buyer_pays' ? 15000 : 0;
+      return sum + (price * (item.qty || 1)) + shipPerItem;
     }, 0);
 
   const selectedCount = cartItems.filter((item: any) => item.checked).length;
@@ -119,7 +121,7 @@ export default function CartScreen() {
                       });
                     }}
                   >
-                    <View className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden items-center justify-center">
+                    <View className="ml-3 w-20 h-20 bg-gray-100 rounded-lg overflow-hidden items-center justify-center">
                       <Image 
                         source={{ uri: getImageUrl(item.image_url || item.image || item.images || item.product?.images) }} 
                         style={{ width: '100%', height: '100%' }} 
@@ -134,9 +136,30 @@ export default function CartScreen() {
                     </View>
                     <View style={{ flex: 1, marginLeft: 12, height: 80, justifyContent: 'space-between' }}>
                       <Text numberOfLines={2} style={{ fontSize: 14 }}>{item.name}</Text>
-                      <Text style={{ color: '#FF424E', fontWeight: 'bold', fontSize: 16 }}>
-                        {parsePrice(item.price).toLocaleString()}đ
-                      </Text>
+
+                      {/* Phần hiển thị giá và phí ship */}
+                      <View>
+                        <Text style={{ color: '#FF424E', fontWeight: 'bold', fontSize: 16 }}>
+                          {parsePrice(item.price).toLocaleString()}đ
+                        </Text>
+
+                        {/* Dòng thông báo phí ship mới thêm */}
+                        {item.shipping_fee_type === 'buyer_pays' ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                            <Feather name="truck" size={12} color="#666" />
+                            <Text style={{ color: '#666', fontSize: 11, marginLeft: 4 }}>
+                              Phí vận chuyển: <Text style={{ color: '#FF7524', fontWeight: 'bold' }}>15.000đ</Text>
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                            <Feather name="check-circle" size={12} color="#22C55E" />
+                            <Text style={{ color: '#22C55E', fontSize: 11, marginLeft: 4, fontWeight: '500' }}>
+                              Miễn phí vận chuyển
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   </TouchableOpacity>
 

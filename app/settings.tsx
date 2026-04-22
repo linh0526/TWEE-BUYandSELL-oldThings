@@ -15,25 +15,51 @@ export default function SettingsScreen() {
   const [displayName, setDisplayName] = useState('');
   const [fullName, setFullName] = useState('');
   const [address, setAddress] = useState('');
+  const [phone, setPhone] = useState('');
 
   useEffect(() => {
     if (profile) {
       setDisplayName(profile.display_name || '');
       setFullName(profile.full_name || '');
       setAddress(profile.address || '');
+      setPhone(profile.phone || '');
     }
   }, [profile]);
 
   const handleUpdateProfile = async () => {
     if (!user) return;
+
+    // Kiểm tra thông tin đã nhập đủ chưa
+    if (!displayName.trim() || !fullName.trim() || !phone.trim() || !address.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Thông tin chưa đầy đủ',
+        text2: 'Vui lòng điền đầy đủ tất cả các trường thông tin'
+      });
+      return;
+    }
+
+    // Kiểm tra số điện thoại Việt Nam
+    const vnf_regex = /((09|03|07|08|05)+([0-9]{8})\b)/g;
+    if (phone && !vnf_regex.test(phone)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Số điện thoại không hợp lệ',
+        text2: 'Vui lòng nhập đúng định dạng SĐT Việt Nam'
+      });
+      return;
+    }
+
+    // Lưu nếu tất cả thông tin đã hợp lệ
     setLoading(true);
     try {
       const { error } = await supabase
         .from('profiles')
         .update({
-          display_name: displayName,
-          full_name: fullName,
-          address: address, // Đổi từ location sang address vì DB không có cột location
+          display_name: displayName.trim(),
+          full_name: fullName.trim(),
+          address: address.trim(),
+          phone: phone.trim(),
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -97,6 +123,18 @@ export default function SettingsScreen() {
               value={fullName}
               onChangeText={setFullName}
               placeholder="Nhập họ và tên..."
+              className="bg-gray-50 p-4 rounded-2xl border border-gray-100 font-bold text-sm text-primary"
+            />
+          </View>
+
+          <View className="mb-6">
+            <Text className="text-[10px] font-black text-primary uppercase mb-2 ml-1">Số điện thoại</Text>
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Nhập số điện thoại..."
+              keyboardType="phone-pad"
+              maxLength={10}
               className="bg-gray-50 p-4 rounded-2xl border border-gray-100 font-bold text-sm text-primary"
             />
           </View>
