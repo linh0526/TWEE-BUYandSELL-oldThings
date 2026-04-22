@@ -7,6 +7,7 @@ import { useCart } from '../context/CartContext';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import Toast from 'react-native-toast-message';
+import { sendNotification } from '@/utils/notification';
 
 export default function CheckoutScreen() {
   const router = useRouter();
@@ -15,7 +16,8 @@ export default function CheckoutScreen() {
   const [loading, setLoading] = useState(false);
 
   const selectedItems = cartItems.filter((item: any) => item.checked);
-  const shippingFee = 15000;
+  const hasShippingFee = selectedItems.some((item: any) => item.shipping_fee_type === 'buyer_pays');
+  const shippingFee = hasShippingFee ? 15000 : 0;
 
   const parsePrice = (price: any) => {
     if (typeof price === 'number') return price;
@@ -72,7 +74,7 @@ export default function CheckoutScreen() {
         }
 
         // 2. Tạo bản ghi đơn hàng
-        const { error: orderError } = await supabase
+        const { data: orderData, error: orderError } = await supabase
           .from('orders')
           .insert({
             buyer_id: user.id,
@@ -81,13 +83,15 @@ export default function CheckoutScreen() {
             quantity: requestQty,
             total_price: parsePrice(item.price) * requestQty + (shippingFee / selectedItems.length), // Chia đều ship
             status: 'pending'
-          });
+          })
+          .select()
+          .single();
 
         if (orderError) throw orderError;
 
         // 3. Trừ số lượng trên database để tránh bị đặt lặp
-        const newQuantity = productData.quantity - requestQty;
-        const updateData = newQuantity === 0 
+        const newQuantity = Math.max(0, productData.quantity - requestQty);
+        const updateData = newQuantity <= 0 
           ? { quantity: newQuantity, status: 'sold' } // Chuyển trạng thái sold để không hiển thị nơi khác
           : { quantity: newQuantity };
 
@@ -97,6 +101,18 @@ export default function CheckoutScreen() {
           .eq('id', item.id);
 
         if (updateError) throw updateError;
+
+        // 4. Thông báo cho người bán (Không để lỗi thông báo làm hỏng quá trình đặt hàng)
+        try {
+          await sendNotification({
+            userId: productData.seller_id,
+            title: 'Đơn hàng mới',
+            content: `Bạn có đơn hàng mới #${orderData.id.slice(0, 8)} cho sản phẩm "${productData.title}".`,
+            type: 'order'
+          });
+        } catch (nError) {
+          console.error('Lỗi khi gửi thông báo đặt hàng:', nError);
+        }
       }
 
       // Thông báo thành công
@@ -186,7 +202,9 @@ export default function CheckoutScreen() {
           </View>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Phí vận chuyển</Text>
-            <Text>{shippingFee.toLocaleString()}đ</Text>
+            <Text style={shippingFee === 0 ? { color: '#22C55E', fontWeight: 'bold' } : {}}>
+              {shippingFee === 0 ? 'Miễn phí' : `${shippingFee.toLocaleString()}đ`}
+            </Text>
           </View>
           <View style={styles.priceRowTotal}>
             <Text style={styles.totalLabel}>Tổng thanh toán</Text>

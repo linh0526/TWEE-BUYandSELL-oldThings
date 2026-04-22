@@ -66,7 +66,7 @@ const ProductCard = ({
           )}
           {is_trusted && (
             <View className="bg-[#E8F3FF] px-1.5 py-0.5 rounded-md border border-[#007AFF]/20">
-              <Text className="text-[#007AFF] text-[8px] font-black uppercase tracking-tighter">Uy tín</Text>
+              <Text className="text-[#007AFF] text-[8px] font-black uppercase tracking-tighter">Shop uy tín</Text>
             </View>
           )}
         </View>

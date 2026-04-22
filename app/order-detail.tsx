@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Linking, Clipboard } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet, Linking, Clipboard, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { useState, useEffect } from 'react';
 import { Image } from 'expo-image';
 import Toast from 'react-native-toast-message';
 import { getImageUrl } from '@/utils/image';
+import { sendNotification } from '@/utils/notification';
 
 export default function OrderDetailScreen() {
   const { user } = useAuth();
@@ -15,6 +16,11 @@ export default function OrderDetailScreen() {
   const router = useRouter();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
 
   useEffect(() => {
     fetchOrderDetail();
@@ -35,6 +41,17 @@ export default function OrderDetailScreen() {
 
       if (error) throw error;
       setOrder(data);
+
+      // Kiểm tra xem đã đánh giá chưa
+      const { data: reviewData } = await supabase
+        .from('reviews')
+        .select('id')
+        .eq('order_id', id)
+        .maybeSingle();
+      
+      if (reviewData) {
+        setHasReviewed(true);
+      }
     } catch (error: any) {
       console.error('Lỗi lấy chi tiết đơn:', error.message);
     } finally {
@@ -62,20 +79,32 @@ export default function OrderDetailScreen() {
 
       if (error) throw error;
 
-      // Logic trừ kho khi xác nhận đơn (Chỉ thực hiện khi từ pending -> paid)
+      // Logic thông báo khi xác nhận đơn (Chỉ thực hiện khi từ pending -> paid)
       if (newStatus === 'paid' && oldStatus === 'pending') {
-        const { data: productData } = await supabase
-          .from('products')
-          .select('stock')
-          .eq('id', order.product_id)
-          .single();
+        // Thông báo cho người mua
+        try {
+          await sendNotification({
+            userId: order.buyer_id,
+            title: 'Đơn hàng được xác nhận',
+            content: `Đơn hàng #${order.id.slice(0, 8)} cho sản phẩm "${order.products?.title}" đã được người bán xác nhận và đang chuẩn bị hàng.`,
+            type: 'order'
+          });
+        } catch (nError) {
+          console.error('Lỗi khi gửi thông báo xác nhận:', nError);
+        }
+      }
 
-        if (productData) {
-          const freshStock = Math.max(0, (productData.stock || 0) - (order.quantity || 0));
-          await supabase
-            .from('products')
-            .update({ stock: freshStock })
-            .eq('id', order.product_id);
+      // Thông báo khi đang giao
+      if (newStatus === 'shipped') {
+        try {
+          await sendNotification({
+            userId: order.buyer_id,
+            title: 'Đơn hàng đang được giao',
+            content: `Đơn hàng #${order.id.slice(0, 8)} cho sản phẩm "${order.products?.title}" hiện đang được đơn vị vận chuyển giao tới bạn.`,
+            type: 'order'
+          });
+        } catch (nError) {
+          console.error('Lỗi khi gửi thông báo đang giao:', nError);
         }
       }
 
@@ -95,6 +124,55 @@ export default function OrderDetailScreen() {
         if (pProf && (pProf.trust_score || 0) < 100) {
           await supabase.from('profiles').update({ trust_score: (pProf.trust_score || 0) + 1 }).eq('id', partnerId);
         }
+
+        // Thông báo cho người bán khi người mua hoàn thành đơn
+        if (user?.id === order.buyer_id) {
+          try {
+            await sendNotification({
+              userId: order.seller_id,
+              title: 'Đơn hàng đã hoàn thành',
+              content: `Người mua đã nhận hàng và hoàn thành đơn hàng #${order.id.slice(0, 8)}. Bạn đã nhận được +1 điểm tin cậy.`,
+              type: 'order'
+            });
+          } catch (nError) {
+            console.error('Lỗi khi gửi thông báo hoàn thành:', nError);
+          }
+        }
+      }
+
+      // Thông báo khi hủy đơn và hoàn kho
+      if (newStatus === 'cancelled') {
+        // Hoàn lại kho
+        const { data: productData } = await supabase
+          .from('products')
+          .select('quantity')
+          .eq('id', order.product_id)
+          .single();
+
+        if (productData) {
+          const restoredQty = (productData.quantity || 0) + (order.quantity || 1);
+          await supabase
+            .from('products')
+            .update({ 
+              quantity: restoredQty,
+              status: 'approved'
+            })
+            .eq('id', order.product_id);
+        }
+
+        const notifyTarget = user?.id === order.buyer_id ? order.seller_id : order.buyer_id;
+        const actorRole = user?.id === order.buyer_id ? 'Người mua' : 'Người bán';
+        
+        try {
+          await sendNotification({
+            userId: notifyTarget,
+            title: 'Đơn hàng đã bị hủy',
+            content: `${actorRole} đã hủy đơn hàng #${order.id.slice(0, 8)} cho sản phẩm "${order.products?.title}".`,
+            type: 'order'
+          });
+        } catch (nError) {
+          console.error('Lỗi khi gửi thông báo hủy:', nError);
+        }
       }
 
       Toast.show({
@@ -111,6 +189,60 @@ export default function OrderDetailScreen() {
         text1: 'Lỗi cập nhật',
         text2: error.message
       });
+    }
+  };
+
+  const submitReview = async () => {
+    if (isSubmittingReview) return;
+    if (rating < 1) {
+      Toast.show({ type: 'info', text1: 'Vui lòng chọn mức đánh giá' });
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    try {
+      const { error } = await supabase
+        .from('reviews')
+        .insert({
+          shop_id: order.seller_id,
+          user_id: user?.id,
+          order_id: id,
+          product_id: order.product_id,
+          rating,
+          comment
+        });
+
+      if (error) throw error;
+
+      Toast.show({
+        type: 'success',
+        text1: 'Đánh giá thành công',
+        text2: 'Cảm ơn bạn đã đóng góp ý kiến!'
+      });
+      setHasReviewed(true);
+      setShowReviewModal(false);
+
+      // Thông báo cho người bán
+      try {
+        await sendNotification({
+          userId: order.seller_id,
+          title: 'Đánh giá mới',
+          content: `Bạn nhận được đánh giá ${rating} sao từ người mua cho sản phẩm "${order.products?.title}".`,
+          type: 'system'
+        });
+      } catch (nError) {
+        console.error('Lỗi khi gửi thông báo đánh giá:', nError);
+      }
+
+    } catch (error: any) {
+      console.error('Lỗi đánh giá:', error.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Lỗi đánh giá',
+        text2: error.message
+      });
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
@@ -251,7 +383,16 @@ export default function OrderDetailScreen() {
                  </View>
                  <View className="flex-row justify-between">
                     <Text className="text-gray-400 font-bold text-xs uppercase">Vận chuyển</Text>
-                    <Text className="text-primary font-black text-xs">{formatPrice(order.total_price - (order.products?.price * order.quantity))}</Text>
+                    <View className="items-end">
+                       <Text className="text-primary font-black text-xs">
+                         {order.total_price - (order.products?.price * order.quantity) <= 0 ? 'Miễn phí' : formatPrice(order.total_price - (order.products?.price * order.quantity))}
+                       </Text>
+                       {order.products?.shipping_fee_type && (
+                         <Text className="text-[8px] font-bold text-gray-400 uppercase mt-0.5">
+                           ({order.products.shipping_fee_type === 'seller_pays' ? 'Người bán trả' : 'Người mua trả'})
+                         </Text>
+                       )}
+                    </View>
                  </View>
                  <View className="pt-4 mt-1 border-t border-gray-200 flex-row justify-between items-center">
                     <Text className="text-primary font-black text-xs uppercase">Tổng đơn</Text>
@@ -309,10 +450,12 @@ export default function OrderDetailScreen() {
                 )}
                 {order.status === 'completed' && (
                   <TouchableOpacity 
-                    onPress={() => router.push({ pathname: '/shop/[id]', params: { id: order.seller_id } } as any)}
-                    className="bg-primary py-5 rounded-3xl items-center shadow-lg shadow-orange-200"
+                    onPress={() => hasReviewed ? router.push({ pathname: '/shop/[id]', params: { id: order.seller_id } } as any) : setShowReviewModal(true)}
+                    className={`${hasReviewed ? 'bg-gray-100' : 'bg-primary'} py-5 rounded-3xl items-center shadow-lg shadow-orange-200`}
                   >
-                    <Text className="text-white font-black uppercase text-xs tracking-widest">Đánh giá sản phẩm</Text>
+                    <Text className={`${hasReviewed ? 'text-gray-400' : 'text-white'} font-black uppercase text-xs tracking-widest`}>
+                      {hasReviewed ? 'Xem đánh giá của bạn' : 'Đánh giá sản phẩm'}
+                    </Text>
                   </TouchableOpacity>
                 )}
               </>
@@ -356,6 +499,95 @@ export default function OrderDetailScreen() {
            </View>
         </View>
       </ScrollView>
+
+      {/* Review Modal */}
+      <Modal
+        visible={showReviewModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowReviewModal(false)}
+      >
+        <View className="flex-1 bg-black/60 justify-end">
+          <TouchableOpacity 
+            activeOpacity={1} 
+            onPress={() => setShowReviewModal(false)}
+            className="flex-1"
+          />
+          <View className="bg-white rounded-t-[50px] p-8 pb-12 shadow-2xl">
+            <View className="items-center mb-6">
+              <View className="w-16 h-1.5 bg-gray-100 rounded-full mb-8" />
+              <Text className="text-2xl font-black text-primary uppercase tracking-tighter">Đánh giá trải nghiệm</Text>
+              <Text className="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest">Sản phẩm: {order.products?.title}</Text>
+            </View>
+
+            {/* Price Preview */}
+            <View className="bg-gray-50 flex-row items-center p-4 rounded-3xl mb-8">
+               <Image 
+                 source={{ uri: getImageUrl(order.products?.images) }} 
+                 className="w-12 h-12 rounded-2xl"
+                 contentFit="cover"
+               />
+               <View className="ml-4">
+                  <Text className="text-xs font-black text-primary uppercase">{order.products?.title}</Text>
+                  <Text className="text-[10px] font-bold text-secondary uppercase mt-0.5">{formatPrice(order.products?.price)}</Text>
+               </View>
+            </View>
+
+            {/* Star Rating */}
+            <View className="flex-row justify-center space-x-4 mb-10">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <TouchableOpacity 
+                  key={star} 
+                  onPress={() => setRating(star)}
+                  className={`w-12 h-12 items-center justify-center rounded-2xl ${rating >= star ? 'bg-orange-50' : 'bg-gray-50'}`}
+                >
+                  <Feather 
+                    name="star" 
+                    size={24} 
+                    color={rating >= star ? '#FF7524' : '#E5E7EB'} 
+                    strokeWidth={rating >= star ? 3 : 2}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Comment Input */}
+            <View className="mb-8">
+              <Text className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-widest ml-1">Nhận xét của bạn</Text>
+              <TextInput
+                multiline
+                numberOfLines={4}
+                placeholder="Chia sẻ cảm nhận của bạn về sản phẩm và dịch vụ của shop..."
+                placeholderTextColor="#94A3B8"
+                className="bg-gray-50 rounded-[32px] p-6 text-primary font-medium text-sm border border-gray-100"
+                style={{ textAlignVertical: 'top', height: 120 }}
+                value={comment}
+                onChangeText={setComment}
+              />
+            </View>
+
+            {/* Submit Button */}
+            <TouchableOpacity 
+              onPress={submitReview}
+              disabled={isSubmittingReview}
+              className={`bg-primary py-5 rounded-3xl items-center shadow-xl shadow-orange-200 ${isSubmittingReview ? 'opacity-70' : ''}`}
+            >
+              {isSubmittingReview ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white font-black uppercase tracking-widest text-sm">Gửi đánh giá</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              onPress={() => setShowReviewModal(false)}
+              className="mt-4 p-2 items-center"
+            >
+              <Text className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">Để sau</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

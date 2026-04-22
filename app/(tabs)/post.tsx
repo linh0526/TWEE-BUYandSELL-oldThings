@@ -36,7 +36,6 @@ export default function PostScreen() {
   const [quantity, setQuantity] = useState('1');
   const [location, setLocation] = useState('Hồ Chí Minh');
   const [detailedAddress, setDetailedAddress] = useState('');
-  const [weight, setWeight] = useState('');
   const [shippingFeeType, setShippingFeeType] = useState('buyer_pays');
 
   // UI States
@@ -108,7 +107,6 @@ export default function PostScreen() {
         setQuantity(data.quantity.toString());
         setLocation(data.location);
         setDetailedAddress(data.detailed_address || '');
-        setWeight(data.weight?.toString() || '');
         setShippingFeeType(data.shipping_fee_type || 'buyer_pays');
       }
     } catch (error: any) {
@@ -221,10 +219,9 @@ export default function PostScreen() {
         location,
         detailed_address: detailedAddress,
         images: imageUrls,
-        weight: weight ? parseFloat(weight) : null,
         shipping_fee_type: shippingFeeType,
         // Moderation logic: Auto-approve if trust score is high enough (>= 65)
-        status: (profile?.trust_score || 0) >= 65 ? 'approved' : 'pending'
+        status: (profile?.trust_score || 0) >= 29 ? 'approved' : 'pending'
       };
 
       let resultError;
@@ -348,16 +345,33 @@ export default function PostScreen() {
           </View>
 
           <View className="mb-4">
-             <Text className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-[0.2em]">Vận chuyển (kg)</Text>
-             <View className="flex-row" style={{ gap: 8 }}>
-                <TextInput value={weight} onChangeText={setWeight} keyboardType="numeric" placeholder="Khối lượng" className="flex-1 bg-gray-50 p-5 rounded-xl font-bold" />
+             <Text className="text-[10px] font-black text-gray-400 mb-3 uppercase tracking-[0.2em]">Phí vận chuyển ( 15k - 30k) *</Text>
+             <View className="flex-row" style={{ gap: 12 }}>
                 <TouchableOpacity
-                  onPress={() => setShippingFeeType(shippingFeeType === 'buyer_pays' ? 'seller_pays' : 'buyer_pays')}
-                  className="flex-1 bg-gray-50 p-5 rounded-xl items-center justify-center border border-gray-100"
+                  onPress={() => setShippingFeeType('buyer_pays')}
+                  className={`flex-1 p-5 rounded-2xl border-2 items-center justify-center ${shippingFeeType === 'buyer_pays' ? 'bg-secondary/10 border-secondary' : 'bg-gray-50 border-gray-100'}`}
                 >
-                  <Text className="text-[10px] font-black uppercase text-secondary">
-                    {shippingFeeType === 'buyer_pays' ? 'Người mua trả phí' : 'Người bán trả phí'}
-                  </Text>
+                  <View className="items-center"> 
+                    <View className={`w-10 h-10 rounded-full items-center justify-center mb-2 ${shippingFeeType === 'buyer_pays' ? 'bg-secondary/20' : 'bg-white'}`}>
+                      <Feather name="user" size={18} color={shippingFeeType === 'buyer_pays' ? '#FF7524' : '#CCC'} />
+                    </View>
+                    <Text className={`text-[10px] font-black uppercase ${shippingFeeType === 'buyer_pays' ? 'text-secondary' : 'text-gray-400'}`}>
+                      Người mua trả
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setShippingFeeType('seller_pays')}
+                  className={`flex-1 p-5 rounded-2xl border-2 items-center justify-center ${shippingFeeType === 'seller_pays' ? 'bg-secondary/10 border-secondary' : 'bg-gray-50 border-gray-100'}`}
+                >
+                  <View className="items-center">
+                    <View className={`w-10 h-10 rounded-full items-center justify-center mb-2 ${shippingFeeType === 'seller_pays' ? 'bg-secondary/20' : 'bg-white'}`}>
+                      <Feather name="truck" size={18} color={shippingFeeType === 'seller_pays' ? '#FF7524' : '#CCC'} />
+                    </View>
+                    <Text className={`text-[10px] font-black uppercase ${shippingFeeType === 'seller_pays' ? 'text-secondary' : 'text-gray-400'}`}>
+                      Người bán trả
+                    </Text>
+                  </View>
                 </TouchableOpacity>
              </View>
           </View>

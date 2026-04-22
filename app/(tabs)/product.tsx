@@ -76,7 +76,8 @@ export default function ProductDetailScreen() {
       images: product?.images,
       shop: seller?.display_name || seller?.full_name || 'Người bán Twee',
       stock: product?.quantity || 1,
-      seller_id: product?.seller_id
+      seller_id: product?.seller_id,
+      shipping_fee_type: product?.shipping_fee_type
     };
     addToCart(cartItem);
     Toast.show({
@@ -99,7 +100,8 @@ export default function ProductDetailScreen() {
       images: product?.images,
       shop: seller?.display_name || seller?.full_name || 'Người bán Twee',
       stock: product?.quantity || 1,
-      seller_id: product?.seller_id
+      seller_id: product?.seller_id,
+      shipping_fee_type: product?.shipping_fee_type
     };
     addToCart(cartItem);
     router.push('/cart');
@@ -154,15 +156,37 @@ export default function ProductDetailScreen() {
         bounces={false}
       >
         <View style={styles.imageContainer}>
-          <Image
-            source={{ uri: getImageUrl(item.image_url || item.image || item.images) }}
-            style={{ width: '100%', height: 480 }}
-            contentFit="cover"
-            transition={800}
-          />
-          <View className="absolute bottom-12 right-6 bg-black/40 px-3 py-1 rounded-full">
-              <Text className="text-[10px] text-white font-black">1/1</Text>
-          </View>
+          {product?.images && product.images.length > 0 ? (
+            <ScrollView 
+              horizontal 
+              pagingEnabled 
+              showsHorizontalScrollIndicator={false}
+            >
+              {product.images.map((img: string, idx: number) => (
+                <View key={idx} style={{ width, height: 480 }}>
+                   <Image 
+                      source={{ uri: getImageUrl(img) }} 
+                      style={{ width: '100%', height: 480 }}
+                      contentFit="cover"
+                      transition={300}
+                   />
+                </View>
+              ))}
+            </ScrollView>
+          ) : (
+            <View className="bg-gray-100 items-center justify-center" style={{ width: '100%', height: 420 }}>
+               <Feather name="image" size={48} color="#999" />
+            </View>
+          )}
+          
+          {/* SOLD Overlay */}
+          {(product?.status === 'sold' || (product?.quantity || 0) <= 0) && (
+            <View className="absolute inset-0 bg-black/40 items-center justify-center">
+              <View className="bg-white/90 px-8 py-3 rounded-2xl border-4 border-secondary rotate-[-15deg]">
+                <Text className="text-secondary text-2xl font-black uppercase tracking-widest">ĐÃ BÁN</Text>
+              </View>
+            </View>
+          )}
         </View>
 
         <View style={styles.contentCard}>
@@ -171,9 +195,13 @@ export default function ProductDetailScreen() {
                 <View className="bg-gray-50 px-2 py-1 rounded-lg border border-gray-100 mr-2">
                   <Text className="text-[7px] font-black text-gray-500 uppercase">OFFICIAL LISTING</Text>
                 </View>
-                {item.shipping_fee_type === 'seller_pays' && (
+                {item.shipping_fee_type === 'seller_pays' ? (
                   <View className="bg-green-50 px-2 py-1 rounded-lg border border-green-100">
                     <Text className="text-[7px] font-black text-green-600 uppercase">Freeship</Text>
+                  </View>
+                ) : (
+                  <View className="bg-orange-50 px-2 py-1 rounded-lg border border-orange-100">
+                    <Text className="text-[7px] font-black text-orange-600 uppercase">Phí vận chuyển</Text>
                   </View>
                 )}
              </View>
@@ -210,15 +238,21 @@ export default function ProductDetailScreen() {
                 </View>
                 <Text className="text-sm font-black text-primary uppercase">{item.condition || 'Rất tốt'}</Text>
              </View>
-             <View className="flex-1 items-center">
+              <View className="flex-1 items-center border-r border-black/5">
                 <Text className="text-[9px] font-black text-primary/30 uppercase tracking-[0.2em] mb-2">Số lượng</Text>
                 <Text className="text-sm font-black text-primary uppercase">{item.quantity || 1} cái</Text>
-             </View>
+              </View>
+              <View className="flex-1 items-center">
+                <Text className="text-[9px] font-black text-primary/30 uppercase tracking-[0.2em] mb-2">Phí vận chuyển</Text>
+                <Text className={`text-sm font-black uppercase ${item.shipping_fee_type === 'seller_pays' ? 'text-green-600' : 'text-primary'}`}>
+                  {item.shipping_fee_type === 'seller_pays' ? 'Người bán trả' : 'Người mua trả'}
+                </Text>
+              </View>
           </View>
 
           <View className="mt-10">
-             <Text className="text-[9px] font-black text-primary/30 uppercase tracking-[0.2em] mb-4">Mô tả chi tiết</Text>
-             <Text className="text-primary/60 font-bold text-[14px] leading-6 tracking-tight">
+             <Text className="text-[12px] font-black text-primary uppercase mb-4">Mô tả chi tiết</Text>
+             <Text className="text-primary/60 text-[14px] leading-6 ">
                 {item.description || 'Người bán chưa cung cấp mô tả chi tiết cho sản phẩm này.'}
              </Text>
           </View>
@@ -232,10 +266,16 @@ export default function ProductDetailScreen() {
           >
             <View className="flex-row items-center">
                 {seller?.avatar_url ? (
-                  <Image source={{ uri: seller.avatar_url }} className="w-14 h-14 rounded-[22px]" />
+                  <Image 
+                    key={seller.avatar_url}
+                    source={{ uri: seller.avatar_url }} 
+                    style={{ width: 56, height: 56, borderRadius: 22 }}
+                    contentFit="cover"
+                    cachePolicy="disk"
+                  />
                 ) : (
-                  <View className="w-14 h-14 rounded-[22px] bg-secondary items-center justify-center shadow-lg shadow-secondary/20">
-                      <Text className="text-white font-black text-lg">{sellerInitial}</Text>
+                  <View className="w-14 h-14 rounded-[22px] bg-secondary items-center justify-center">
+                    <Text className="text-white font-black text-lg">{sellerInitial}</Text>
                   </View>
                 )}
                 <View className="ml-4">
@@ -269,19 +309,23 @@ export default function ProductDetailScreen() {
         ) : (
           <>
             <TouchableOpacity 
-              style={styles.cartBtn} 
+              style={[styles.cartBtn, (product?.status === 'sold' || (product?.quantity || 0) <= 0) && { opacity: 0.5 }]} 
               onPress={handleAddToCart}
               activeOpacity={0.7}
+              disabled={product?.status === 'sold' || (product?.quantity || 0) <= 0}
             >
               <Feather name="shopping-cart" size={20} color="#FF7524" />
               <Text className="ml-2 font-black text-primary uppercase text-[14px]">Thêm vào giỏ</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={styles.buyBtn} 
+              style={[styles.buyBtn, (product?.status === 'sold' || (product?.quantity || 0) <= 0) && { backgroundColor: '#CCC' }]} 
               onPress={handleBuyNow}
               activeOpacity={0.8}
+              disabled={product?.status === 'sold' || (product?.quantity || 0) <= 0}
             >
-              <Text className="font-black text-[#3C1300] uppercase tracking-[0.05em] text-[15px]">Mua ngay</Text>
+              <Text className="font-black text-[#3C1300] uppercase tracking-[0.05em] text-[15px]">
+                {(product?.status === 'sold' || (product?.quantity || 0) <= 0) ? 'Hết hàng' : 'Mua ngay'}
+              </Text>
               <View className="ml-2 bg-black/10 p-1 rounded-full">
                  <Feather name="arrow-right" size={12} color="#3C1300" />
               </View>

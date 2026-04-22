@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   shop_description TEXT,
   location TEXT,
   phone_number TEXT,
+  address TEXT, -- Thêm cột địa chỉ cho xác minh
   phone_verified BOOLEAN DEFAULT FALSE,
   trust_score INT DEFAULT 30, -- Mặc định 30 điểm khi tham gia
   transaction_points INT DEFAULT 0, -- Tối đa 20 điểm từ mua/bán (mỗi lần +1)
@@ -105,6 +106,8 @@ CREATE TABLE IF NOT EXISTS reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE,
   rating INTEGER CHECK (rating >= 1 AND rating <= 5),
   comment TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -127,6 +130,7 @@ CREATE POLICY "Public read subcategories" ON subcategories FOR SELECT USING (tru
 CREATE POLICY "Public read sub_items" ON sub_items FOR SELECT USING (true);
 CREATE POLICY "Public read approved products" ON products FOR SELECT USING (status = 'approved');
 CREATE POLICY "Public read reviews" ON reviews FOR SELECT USING (true);
+CREATE POLICY "Users can insert reviews" ON reviews FOR INSERT WITH CHECK (auth.uid() = user_id);
 
 -- Cá nhân: Profile của chính mình
 CREATE POLICY "Users can view own profile" ON profiles FOR SELECT USING (auth.uid() = id);
@@ -139,7 +143,13 @@ CREATE POLICY "Sellers can manage own products" ON products FOR ALL USING (auth.
 CREATE POLICY "Users can view own buying orders" ON orders FOR SELECT USING (auth.uid() = buyer_id);
 CREATE POLICY "Users can view own selling orders" ON orders FOR SELECT USING (auth.uid() = seller_id);
 CREATE POLICY "Buyers can insert orders" ON orders FOR INSERT WITH CHECK (auth.uid() = buyer_id);
-CREATE POLICY "Sellers can update order status" ON orders FOR UPDATE USING (auth.uid() = seller_id);
+CREATE POLICY "Users can update own orders" ON orders FOR UPDATE USING (auth.uid() = buyer_id OR auth.uid() = seller_id);
+
+-- Thông báo: Người dùng có thể xem thông báo của mình và gửi thông báo cho người khác
+CREATE POLICY "Users can view own notifications" ON notifications FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert notifications" ON notifications FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "Users can update own notifications" ON notifications FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own notifications" ON notifications FOR DELETE USING (auth.uid() = user_id);
 
 -- TRIGGERS
 -- Tự động tạo profile khi đăng ký mới

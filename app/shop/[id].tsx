@@ -47,23 +47,30 @@ const HeaderComponent = ({ seller, products, activeTab, setActiveTab, selectedRa
         <View className="bg-white rounded-[40px] p-6 shadow-2xl shadow-black/10 border border-gray-100">
           <View className="flex-row items-start justify-between">
             <View className="flex-row items-center border-l-4 border-secondary pl-4">
-              <View className="relative">
-                {seller?.avatar_url ? (
-                  <Image 
-                    source={{ uri: seller.avatar_url }} 
-                    style={{ width: 80, height: 80, borderRadius: 30, borderWidth: 4, borderColor: '#fff' }}
-                    className="shadow-lg"
-                  />
-                ) : (
+                <View className="relative">
                   <View 
-                    style={{ width: 80, height: 80, borderRadius: 30, borderWidth: 4, borderColor: '#fff' }} 
-                    className="bg-secondary items-center justify-center shadow-lg"
+                    style={{ width: 80, height: 80, borderRadius: 30, backgroundColor: '#fff', elevation: 5 }} 
+                    className="shadow-lg shadow-black/20"
                   >
-                    <Text className="text-white text-3xl font-black">{displayChar}</Text>
+                    {seller?.avatar_url ? (
+                      <Image 
+                        key={seller.avatar_url}
+                        source={{ uri: seller.avatar_url }} 
+                        style={{ width: '100%', height: '100%', borderRadius: 30, borderWidth: 4, borderColor: '#fff' }}
+                        contentFit="cover"
+                        cachePolicy="disk"
+                      />
+                    ) : (
+                      <View 
+                        style={{ width: '100%', height: '100%', borderRadius: 30, borderWidth: 4, borderColor: '#fff' }} 
+                        className="bg-secondary items-center justify-center"
+                      >
+                        <Text className="text-white text-3xl font-black">{displayChar}</Text>
+                      </View>
+                    )}
                   </View>
-                )}
-                <View className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-4 border-white" />
-              </View>
+                  <View className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-4 border-white" />
+                </View>
               <View className="ml-4">
                 <View className="flex-row items-center">
                   <Text className="text-xl font-black text-primary uppercase mr-2">{shopName}</Text>
@@ -103,9 +110,15 @@ const HeaderComponent = ({ seller, products, activeTab, setActiveTab, selectedRa
           <View className="mt-6 flex-row flex-wrap" style={{ gap: 8 }}>
             {[
               { icon: 'calendar', label: 'Tham gia', value: joinedDate },
-              { icon: 'message-square', label: 'Phản hồi', value: '98%' },
+              { icon: 'message-square', label: 'Phản hồi', value: '99%' },
               { icon: 'shield', label: 'Xác minh', value: 'Đã xác thực', highlight: true },
-              { icon: 'star', label: 'Trung bình', value: '4.9/5.0' },
+              { 
+                icon: 'star', 
+                label: 'Đánh giá', 
+                value: reviews.length > 0 
+                  ? `${(reviews.reduce((acc: number, r: any) => acc + (r.rating || 0), 0) / reviews.length).toFixed(1)}/5.0` 
+                  : 'Chưa có' 
+              },
             ].map((item, idx) => (
               <View key={idx} className={`flex-1 min-w-[45%] p-4 rounded-3xl border ${item.highlight ? 'bg-orange-50 border-orange-100' : 'bg-white border-gray-50'}`}>
                 <View className="flex-row items-center mb-1">
@@ -133,7 +146,7 @@ const HeaderComponent = ({ seller, products, activeTab, setActiveTab, selectedRa
               className={`flex-1 py-4 items-center rounded-[22px] ${activeTab === tab ? 'bg-white shadow-sm' : ''}`}
             >
               <Text className={`text-[10px] font-black uppercase tracking-[0.1em] ${activeTab === tab ? 'text-primary' : 'text-gray-400'}`}>
-                {tab === 'products' ? 'Sản phẩm' : tab === 'reviews' ? 'Đánh giá' : 'Về shop'}
+                {tab === 'products' ? 'Sản phẩm' : tab === 'reviews' ? `Đánh giá (${reviews.length})` : 'Về shop'}
               </Text>
             </TouchableOpacity>
           ))}
@@ -205,25 +218,45 @@ export default function ShopScreen() {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
+      console.log('--- FETCHING SHOP DATA ---');
+      console.log('Shop ID from params:', id);
       
-      // Chạy song song các query để tối ưu tốc độ
       const [profileRes, productsRes, reviewsRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', id).single(),
-        supabase.from('products').select('*').eq('seller_id', id).eq('status', 'approved').order('created_at', { ascending: false }),
-        supabase.from('reviews').select('*, user:user_id (display_name, full_name, avatar_url)').eq('shop_id', id).order('created_at', { ascending: false })
+        supabase.from('products').select('*').eq('seller_id', id).eq('status', 'approved').gt('quantity', 0).order('created_at', { ascending: false }),
+        supabase.from('reviews').select(`
+          *,
+          user:user_id (
+            display_name,
+            full_name,
+            avatar_url
+          )
+        `).eq('shop_id', id).order('created_at', { ascending: false })
       ]);
 
-      if (profileRes.error) throw profileRes.error;
+      if (profileRes.error) {
+        console.error('Profile Fetch Error:', profileRes.error);
+        throw profileRes.error;
+      }
       setSeller(profileRes.data);
 
-      if (productsRes.error) throw productsRes.error;
+      if (productsRes.error) {
+        console.error('Products Fetch Error:', productsRes.error);
+        throw productsRes.error;
+      }
       setProducts(productsRes.data || []);
 
-      if (reviewsRes.error) throw reviewsRes.error;
+      if (reviewsRes.error) {
+        console.error('Reviews Fetch Error:', reviewsRes.error);
+        throw reviewsRes.error;
+      }
+      
+      console.log('Reviews received from DB:', reviewsRes.data?.length || 0);
+      console.log('Sample review shop_id:', reviewsRes.data?.[0]?.shop_id);
       setReviews(reviewsRes.data || []);
 
-    } catch (error) {
-      console.error('Lỗi lấy dữ liệu shop:', error);
+    } catch (error: any) {
+      console.error('Shop fetch overall error:', error);
     } finally {
       setLoading(false);
     }

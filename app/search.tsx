@@ -38,14 +38,14 @@ export default function SearchScreen() {
   const [history, setHistory] = useState<string[]>([]);
 
   // Category Logic
-  const { getCategoryById, getRootIds, getChildrenIds } = useCategoryStore();
+  const { getCategoryById, getRootIds, getChildrenIds, isLoaded, fetchCategories } = useCategoryStore();
   const [categoryPath, setCategoryPath] = useState<{id: string, name: string}[]>([
     { id: 'all', name: 'Tất cả' }
   ]);
 
-  // Đồng bộ category từ params ban đầu
+  // Đồng bộ category từ params ban đầu khi Store đã load xong
   useEffect(() => {
-    if (initialCatId && initialCatId !== 'all') {
+    if (isLoaded && initialCatId && initialCatId !== 'all') {
       const item = getCategoryById(initialCatId);
       if (item) {
         const pathIds = item.path ? item.path.split('/') : [initialCatId];
@@ -59,10 +59,11 @@ export default function SearchScreen() {
         setCategoryPath(newPath);
       }
     }
-  }, [initialCatId, getCategoryById]);
+  }, [initialCatId, isLoaded, getCategoryById]);
 
-  // Load history
+  // Load categories and initial state
   useEffect(() => {
+    fetchCategories();
     loadHistory();
   }, []);
 
@@ -166,7 +167,8 @@ export default function SearchScreen() {
       let query = supabase
         .from('products')
         .select('*, profiles(display_name, trust_score)')
-        .eq('status', 'approved');
+        .eq('status', 'approved')
+        .gt('quantity', 0);
 
       if (sellerId) {
         query = query.eq('seller_id', sellerId);
@@ -198,7 +200,9 @@ export default function SearchScreen() {
   }, [searchQuery, currentLevelId, filterCondition, location, priceRange, sortBy, getAllChildrenIds]);
 
   useEffect(() => {
-    fetchProducts();
+    let active = true;
+    if (active) fetchProducts();
+    return () => { active = false; };
   }, [fetchProducts]);
 
   const handleCategorySelect = (opt: { id: string, name: string, hasChildren: boolean }) => {

@@ -10,6 +10,7 @@ interface Profile {
   avatar_url: string | null;
   shop_description: string | null;
   phone_number: string | null;
+  address: string | null;
   phone_verified: boolean;
   trust_score: number;
   is_admin: boolean;

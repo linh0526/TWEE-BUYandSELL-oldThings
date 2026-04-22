@@ -26,7 +26,8 @@ const HomeScreen = () => {
       let query = supabase
         .from('products')
         .select('*, profiles(display_name, full_name, trust_score)')
-        .eq('status', 'approved');
+        .eq('status', 'approved')
+        .gt('quantity', 0);
       
       if (selectedLocation) {
         query = query.eq('location', selectedLocation);
