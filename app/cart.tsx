@@ -12,13 +12,6 @@ export default function CartScreen() {
   const router = useRouter();
   const { cartItems, setCartItems, removeFromCart, updateQuantity } = useCart();
   const [editingShops, setEditingShops] = useState<string[]>([]);
-  const [showSimilar, setShowSimilar] = useState(false);
-  const [similarProducts, setSimilarProducts] = useState<any[]>([]);
-
-  const handleFindSimilar = (currentItem: any) => {
-    setSimilarProducts([]);
-    setShowSimilar(true);
-  };
 
   const toggleEditShop = (shopName: string) => {
     setEditingShops(prev =>
@@ -28,10 +21,10 @@ export default function CartScreen() {
     );
   };
 
-  const toggleCheck = (id: string | number) => {
+  const toggleCheck = (cartId: string | number) => {
     setCartItems((prev: any) =>
       prev.map((item: any) =>
-        item.id === id ? { ...item, checked: !item.checked } : item
+        item.cart_id === cartId ? { ...item, checked: !item.checked } : item
       )
     );
   };
@@ -91,10 +84,10 @@ export default function CartScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }}>
-        {shops.map((shopName: any) => {
+        {shops.map((shopName: any, shopIndex: number) => {
           const isEditing = editingShops.includes(shopName);
           return (
-            <View key={shopName} style={{ backgroundColor: 'white', marginTop: 10, paddingBottom: 0 }}>
+            <View key={`shop-${shopName}-${shopIndex}`} style={{ backgroundColor: 'white', marginTop: 10, paddingBottom: 0 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 16 }}>
                 <TouchableOpacity
                   activeOpacity={0.6}
@@ -111,8 +104,8 @@ export default function CartScreen() {
               </View>
 
               {cartItems.filter((item: any) => item.shop === shopName).map((item: any, index: number, array: any[]) => (
-                <View key={item.id} style={{ flexDirection: 'row', padding: 12, alignItems: 'center', backgroundColor: 'white', borderBottomWidth: index === array.length - 1 ? 0 : 1, borderBottomColor: '#f0f0f0', height: 110 }}>
-                  <TouchableOpacity onPress={() => toggleCheck(item.id)}>
+                <View key={item.cart_id} style={{ flexDirection: 'row', padding: 12, alignItems: 'center', backgroundColor: 'white', borderBottomWidth: index === array.length - 1 ? 0 : 1, borderBottomColor: '#f0f0f0', height: 110 }}>
+                  <TouchableOpacity onPress={() => toggleCheck(item.cart_id)}>
                     <Feather name={item.checked ? "check-square" : "square"} size={22} color={item.checked ? "#FF7524" : "#ccc"} />
                   </TouchableOpacity>
 
@@ -150,24 +143,14 @@ export default function CartScreen() {
                   {isEditing ? (
                     <View style={{ flexDirection: 'row', position: 'absolute', right: 0, top: 0, bottom: 0, backgroundColor: 'white', alignItems: 'center', paddingRight: 12 }}>
                       <TouchableOpacity
-                        style={{ backgroundColor: '#FFF5EE', width: 85, height: 80, justifyContent: 'center', alignItems: 'center', borderRadius: 12, marginRight: 10 }}
-                        onPress={() => handleFindSimilar(item)}
-                      >
-                        <Feather name="layers" size={18} color="#FF7524" style={{ marginBottom: 2 }} />
-                        <Text style={{ color: '#FF7524', textAlign: 'center', fontSize: 10, fontWeight: 'bold', lineHeight: 12 }}>
-                          Sản phẩm{"\n"}tương tự
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={{ backgroundColor: '#FFF5EE', width: 65, height: 80, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }}
+                        style={{ backgroundColor: '#FFF5EE', width: 80, height: 80, justifyContent: 'center', alignItems: 'center', borderRadius: 12 }}
                         onPress={() => {
                           Alert.alert(
                             "Xác nhận xóa",
                             `Bạn có chắc chắn muốn xóa món này khỏi giỏ hàng không?`,
                             [
                               { text: "Hủy bỏ", style: "cancel" },
-                              { text: "Xác nhận", onPress: () => removeFromCart && removeFromCart(item.id), style: "destructive" }
+                              { text: "Xác nhận", onPress: () => removeFromCart && removeFromCart(item.cart_id), style: "destructive" }
                             ]
                           );
                         }}
@@ -179,7 +162,7 @@ export default function CartScreen() {
                   ) : (
                     <View style={{ flexDirection: 'row', borderWidth: 1, borderColor: '#eee', borderRadius: 4, marginLeft: 10 }}>
                         <TouchableOpacity
-                          onPress={() => updateQty(item.id, -1)}
+                          onPress={() => updateQty(item.cart_id, -1)}
                           style={{ paddingHorizontal: 8, paddingVertical: 5, borderRightWidth: 1, borderRightColor: '#eee', opacity: item.qty <= 1 ? 0.3 : 1 }}
                           disabled={item.qty <= 1}
                         >
@@ -187,7 +170,7 @@ export default function CartScreen() {
                         </TouchableOpacity>
                         <Text style={{ paddingHorizontal: 10, paddingTop: 6 }}>{item.qty}</Text>
                         <TouchableOpacity
-                          onPress={() => updateQty(item.id, 1)}
+                          onPress={() => updateQty(item.cart_id, 1)}
                           style={{ paddingHorizontal: 8, paddingVertical: 5, borderLeftWidth: 1, borderLeftColor: '#eee' }}
                         >
                           <Text style={{ fontSize: 16 }}>+</Text>

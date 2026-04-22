@@ -113,6 +113,16 @@ CREATE TABLE IF NOT EXISTS reviews (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 8. Bảng Giỏ hàng (Phần bổ sung của Hoàng Yến)
+CREATE TABLE IF NOT EXISTS cart (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  product_id UUID REFERENCES products(id) ON DELETE CASCADE,
+  quantity INT DEFAULT 1,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT one_item_per_user UNIQUE(user_id, product_id)
+);
+
 -- Kích hoạt RLS (Bảo mật mức hàng)
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subcategories ENABLE ROW LEVEL SECURITY;
@@ -122,6 +132,7 @@ ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cart ENABLE ROW LEVEL SECURITY;
 
 -- CÁC CHÍNH SÁCH RLS CƠ BẢN
 -- Công khai: Danh mục, Danh mục con, Sản phẩm đã duyệt
@@ -150,6 +161,9 @@ CREATE POLICY "Users can view own notifications" ON notifications FOR SELECT USI
 CREATE POLICY "Users can insert notifications" ON notifications FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 CREATE POLICY "Users can update own notifications" ON notifications FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own notifications" ON notifications FOR DELETE USING (auth.uid() = user_id);
+
+-- Giỏ hàng: Cho phép người dùng quản lý giỏ hàng của chính họ
+CREATE POLICY "Users can manage own cart" ON cart FOR ALL USING (auth.uid() = user_id);
 
 -- TRIGGERS
 -- Tự động tạo profile khi đăng ký mới
