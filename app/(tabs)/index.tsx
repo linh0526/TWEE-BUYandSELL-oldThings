@@ -4,31 +4,38 @@ import { Feather } from '@expo/vector-icons';
 import ProductCard from '@/components/ProductCard';
 import { useRouter, useFocusEffect } from 'expo-router';
 import TopNavbar from '@/components/TopNavbar';
+import HomeBanner from '@/components/HomeBanner';
 import { useCategoryStore } from '@/lib/store/useCategoryStore';
 import { supabase } from '@/lib/supabase';
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const RECENT_VIEWED_KEY = '@recently_viewed';
 
 const HomeScreen = () => {
   const router = useRouter();
-  const { getRootCategories, categories } = useCategoryStore();
+  const { getRootCategories, categories, fetchCategories } = useCategoryStore();
   const [products, setProducts] = useState<any[]>([]);
+  const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<string>('');
 
-  // Lấy danh mục gốc
   const rootCategories = useMemo(() => getRootCategories(), [categories, getRootCategories]);
 
-  const fetchProducts = async (showLoading = true) => {
+  const fetchData = async (showLoading = true) => {
     try {
       if (showLoading) setIsLoading(true);
-      
+
+      // Fetch categories if not loaded
+      await fetchCategories();
+
       let query = supabase
         .from('products')
         .select('*, profiles(display_name, full_name, trust_score)')
         .eq('status', 'approved')
         .gt('quantity', 0);
-      
+
       if (selectedLocation) {
         query = query.eq('location', selectedLocation);
       }
@@ -38,34 +45,48 @@ const HomeScreen = () => {
       if (error) throw error;
       if (data) setProducts(data);
     } catch (error) {
-      console.error('Lỗi lấy sản phẩm:', error);
+      console.error('Lỗi lấy dữ liệu:', error);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
   };
 
+  const loadRecentlyViewed = async () => {
+    try {
+      const stored = await AsyncStorage.getItem(RECENT_VIEWED_KEY);
+      if (stored) {
+        setRecentlyViewed(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error('Failed to load recently viewed', e);
+    }
+  };
+
   useEffect(() => {
-    fetchProducts(true);
+    fetchData();
   }, [selectedLocation]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchProducts(false);
+      fetchData(false);
+      loadRecentlyViewed();
     }, [selectedLocation])
   );
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
-    fetchProducts(false);
+    fetchData(false);
+    loadRecentlyViewed();
   }, [selectedLocation]);
 
-  const formatPrice = (price: number) => {
+  const formatPrice = (price: any) => {
+    const numPrice = typeof price === 'string' ? parseFloat(price.replace(/[^0-9.-]+/g,"")) : price;
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
       currency: 'VND',
       maximumFractionDigits: 0
-    }).format(price);
+    }).format(numPrice || 0);
   };
 
   return (
@@ -83,7 +104,46 @@ const HomeScreen = () => {
           onLocationChange={setSelectedLocation}
         />
 
-        <View className="mt-2">
+        <HomeBanner />
+
+        {/* Section: Sản phẩm vừa xem */}
+        {recentlyViewed.length > 0 && (
+          <View className="mt-10">
+            <View className="px-6 flex-row justify-between items-end mb-4">
+              <View>
+                <Text className="text-lg font-black text-primary tracking-tighter uppercase leading-none">VỪA XEM</Text>
+                <View className="h-1 w-8 bg-secondary mt-1 rounded-full" />
+              </View>
+              <TouchableOpacity onPress={async () => {
+                await AsyncStorage.removeItem(RECENT_VIEWED_KEY);
+                setRecentlyViewed([]);
+              }}>
+                <Text className="text-gray-300 font-bold text-[10px] uppercase">Xóa</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
+              {recentlyViewed.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  className="mr-4 w-28"
+                  onPress={() => router.push({ pathname: '/product', params: { id: item.id } })}
+                >
+                  <View className="w-28 h-28 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100">
+                    <Image source={{ uri: item.image || (item.images && item.images[0]) }} className="w-full h-full" resizeMode="cover" />
+                  </View>
+                  <Text className="text-[10px] font-black text-primary mt-2 uppercase tracking-tighter" numberOfLines={1}>{item.title}</Text>
+                  <Text className="text-secondary font-black text-[9px]">{formatPrice(item.price)}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* Section: Danh mục */}
+        <View className="mt-10">
+          <View className="px-6 mb-4">
+             <Text className="text-lg font-black text-primary tracking-tighter uppercase">DANH MỤC</Text>
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
             {rootCategories.map((cat) => (
               <TouchableOpacity
@@ -92,68 +152,62 @@ const HomeScreen = () => {
                 onPress={() => router.push({ pathname: '/search', params: { categoryId: cat.id } })}
               >
                 <View className="w-16 h-16 rounded-full overflow-hidden mb-2 shadow-sm border border-gray-100">
-                   {cat.image_url ? <Image source={{ uri: cat.image_url }} className="w-full h-full" /> : <View className="flex-1 items-center justify-center bg-gray-100"><Feather name="grid" size={20} color="#999" /></View>}
+                   {cat.image_url ? (
+                     <Image source={{ uri: cat.image_url }} className="w-full h-full" resizeMode="cover" />
+                   ) : (
+                     <View className="flex-1 items-center justify-center bg-gray-50">
+                       <Feather name="grid" size={20} color="#FF7524" />
+                     </View>
+                   )}
                 </View>
-                <Text className="font-black text-[9px] uppercase text-gray-500">{cat.name}</Text>
+                <Text className="font-black text-[9px] uppercase text-gray-500 text-center w-16" numberOfLines={1}>
+                  {cat.name}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
-        <View className="flex-row items-end justify-between px-6 mb-8 mt-6">
-          <Text className="text-2xl font-black text-primary tracking-tighter uppercase">DÀNH CHO BẠN</Text>
-          <TouchableOpacity onPress={() => fetchProducts(true)}><Text className="text-secondary font-bold text-xs uppercase">Làm mới</Text></TouchableOpacity>
+        {/* Section: Danh sách sản phẩm gợi ý */}
+        <View className="flex-row items-end justify-between px-6 mb-6 mt-10">
+          <View>
+            <Text className="text-2xl font-black text-primary tracking-tighter uppercase leading-none">DÀNH CHO BẠN</Text>
+            <View className="h-1 w-12 bg-secondary mt-1 rounded-full" />
+          </View>
+          <TouchableOpacity onPress={() => fetchData(true)}>
+            <Text className="text-secondary font-bold text-xs uppercase tracking-widest">Làm mới</Text>
+          </TouchableOpacity>
         </View>
 
-        {isLoading && !isRefreshing ? <ActivityIndicator size="large" color="#FF7524" className="mt-10" /> : (
-          products.length === 0 ? (
-            <View className="px-6 py-20 items-center justify-center">
-              <View className="bg-gray-50 p-8 rounded-[40px] mb-6">
-                <Feather name="shopping-bag" size={48} color="#CCC" />
-              </View>
-              <Text className="text-lg font-black text-primary text-center mb-2 uppercase tracking-widest">
-                Ôi, Trống Trơn!
-              </Text>
-              <Text className="text-gray-400 text-center mb-8 px-10 leading-5 font-medium">
-                Không có sản phẩm khu vực này, bạn hãy đăng bán nhéeee.
-              </Text>
-              <TouchableOpacity 
-                onPress={() => router.push('/post')}
-                className="bg-secondary px-8 py-4 rounded-2xl shadow-lg shadow-secondary/20"
-              >
-                <Text className="text-white font-black uppercase text-xs">Đăng bán ngay</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View className="px-4 flex-row flex-wrap justify-between">
-              {products.map((item) => (
-                <View key={item.id} style={{ width: '31.5%', marginBottom: 16 }}>
+        {isLoading && !isRefreshing ? (
+          <View className="py-20">
+            <ActivityIndicator size="large" color="#FF7524" />
+          </View>
+        ) : (
+          <View className="px-4 flex-row flex-wrap">
+            {products.length > 0 ? (
+              products.map((item) => (
+                <View key={item.id} style={{ width: '33.33%', padding: 4 }}>
                   <ProductCard
                     title={item.title}
                     price={formatPrice(item.price)}
-                    image={item.image_url || item.images?.[0]}
+                    image={item.image_url || (item.images && item.images[0])}
                     location={item.location}
-                    shipping_fee_type={item.shipping_fee_type}
-                    is_trusted={(item.profiles?.trust_score || 0) > 65}
                     onPress={() => router.push({ pathname: '/product', params: { id: item.id } })}
                   />
                 </View>
-              ))}
-              {/* View trống để căn lề cho dòng cuối khi dùng justify-between */}
-              {products.length % 3 === 2 && (
-                <View style={{ width: '31.5%', height: 0 }} />
-              )}
-              {products.length % 3 === 1 && (
-                <>
-                  <View style={{ width: '31.5%', height: 0 }} />
-                  <View style={{ width: '31.5%', height: 0 }} />
-                </>
-              )}
-            </View>
-          )
+              ))
+            ) : (
+              <View className="w-full py-20 items-center">
+                <Feather name="package" size={48} color="#EEE" />
+                <Text className="text-gray-400 font-bold mt-4 uppercase text-[10px]">Chưa có sản phẩm nào</Text>
+              </View>
+            )}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
   );
 }
+
 export default HomeScreen;
