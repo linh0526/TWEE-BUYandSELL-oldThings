@@ -89,14 +89,20 @@ export default function TabLayout() {
           title: 'Tài khoản',
           tabBarIcon: ({ color }: { color: string }) => <Feather name="user" size={24} color={color} />,
         }}
-      />
-      <Tabs.Screen
-        name="product"
-        options={{
-          href: null,
-          tabBarStyle: { display: 'none' },
-        }}
-      />
-    </Tabs>
-  );
-}
+   />
+         <Tabs.Screen
+           name="product"
+           options={{
+             href: null,
+             tabBarStyle: { display: 'none' },
+           }}
+         />
+         <Tabs.Screen
+           name="chat"
+           options={{
+             href: null,
+           }}
+         />
+       </Tabs>
+     );
+   }

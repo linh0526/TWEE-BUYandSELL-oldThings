@@ -339,7 +339,7 @@ export default function ProfileScreen() {
             {[
               { icon: <Feather name="package" size={18} color="#FF7524" />, label: 'Tin đăng của tôi', count: listingCount, onPress: () => router.push({ pathname: '/my-orders', params: { type: 'selling' } } as any) },
               { icon: <Feather name="heart" size={18} color="#FF7524" />, label: 'Tin đã lưu', count: 0, onPress: () => {} },
-              { icon: <Feather name="message-square" size={18} color="#FF7524" />, label: 'Tin nhắn', count: 0, onPress: () => {} },
+              { icon: <Feather name="message-square" size={18} color="#FF7524" />, label: 'Tin nhắn', count: 0, onPress: () => router.push('/chat' as any)},
               { icon: <Feather name="settings" size={18} color="#FF7524" />, label: 'Cài đặt tài khoản', onPress: () => router.push('/settings' as any) },
             ].map((item, index) => (
               <TouchableOpacity 

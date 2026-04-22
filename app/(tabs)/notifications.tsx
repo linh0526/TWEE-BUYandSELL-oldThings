@@ -22,7 +22,7 @@ export default function NotificationsScreen() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setNotifications(data || []);
     } catch (error) {
@@ -80,10 +80,10 @@ export default function NotificationsScreen() {
              <Text className="text-gray-300 font-bold mt-4 uppercase">Chưa có thông báo nào</Text>
           </View>
         )}
-    
+
         {notifications.map((notif) => (
-          <TouchableOpacity 
-            key={notif.id} 
+          <TouchableOpacity
+            key={notif.id}
             className={`p-6 rounded-2xl mb-4 flex-row items-start ${notif.is_read ? 'bg-surface-container/50 opacity-60' : 'bg-surface-container border border-secondary/10'}`}
           >
              <View className="bg-surface-container-high p-3 rounded-xl mr-4">

@@ -13,14 +13,12 @@ import { getImageUrl } from '@/utils/image';
 
 const { width, height } = Dimensions.get('window');
 
-
-
 export default function ProductDetailScreen() {
   const params = useLocalSearchParams<{ id: string; title?: string; price?: string }>();
   const router = useRouter();
   const { user } = useAuth();
   const { addToCart } = useCart();
-  
+
   const [product, setProduct] = React.useState<any>(null);
   const [seller, setSeller] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
@@ -48,10 +46,10 @@ export default function ProductDetailScreen() {
       if (prodData?.seller_id) {
         const { data: sellerData, error: sellerError } = await supabase
           .from('profiles')
-          .select('display_name, full_name, avatar_url')
+          .select('display_name, full_name, avatar_url, id')
           .eq('id', prodData.seller_id)
           .single();
-        
+
         if (!sellerError) setSeller(sellerData);
       }
     } catch (error) {
@@ -107,7 +105,25 @@ export default function ProductDetailScreen() {
     router.push('/cart');
   };
 
-  const item = product || params; // Fallback to params if fetch fails or still loading
+  const handleChatWithSeller = async () => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    // Điều hướng sang trang chat và truyền thông tin người bán + sản phẩm
+    router.push({
+      pathname: '/chat',
+      params: {
+        sellerId: seller?.id,
+        sellerName: seller?.display_name || seller?.full_name,
+        productId: product?.id,
+        productTitle: product?.title
+      }
+    } as any);
+  };
+
+  const item = product || params;
 
   const formatPrice = (price: any) => {
     if (!price) return '0';
@@ -137,7 +153,7 @@ export default function ProductDetailScreen() {
               <Feather name="arrow-left" size={20} color="white" />
             </View>
           </TouchableOpacity>
-          
+
           <View className="bg-black/20 px-4 py-2 rounded-full border border-white/10">
             <Text className="text-[8px] font-black uppercase tracking-[0.3em] text-white">TWEE PREMIUM</Text>
           </View>
@@ -150,22 +166,22 @@ export default function ProductDetailScreen() {
         </View>
       </SafeAreaView>
 
-      <ScrollView 
-        showsVerticalScrollIndicator={false} 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 160 }}
         bounces={false}
       >
         <View style={styles.imageContainer}>
           {product?.images && product.images.length > 0 ? (
-            <ScrollView 
-              horizontal 
-              pagingEnabled 
+            <ScrollView
+              horizontal
+              pagingEnabled
               showsHorizontalScrollIndicator={false}
             >
               {product.images.map((img: string, idx: number) => (
                 <View key={idx} style={{ width, height: 480 }}>
-                   <Image 
-                      source={{ uri: getImageUrl(img) }} 
+                   <Image
+                      source={{ uri: getImageUrl(img) }}
                       style={{ width: '100%', height: 480 }}
                       contentFit="cover"
                       transition={300}
@@ -178,8 +194,7 @@ export default function ProductDetailScreen() {
                <Feather name="image" size={48} color="#999" />
             </View>
           )}
-          
-          {/* SOLD Overlay */}
+
           {(product?.status === 'sold' || (product?.quantity || 0) <= 0) && (
             <View className="absolute inset-0 bg-black/40 items-center justify-center">
               <View className="bg-white/90 px-8 py-3 rounded-2xl border-4 border-secondary rotate-[-15deg]">
@@ -260,15 +275,15 @@ export default function ProductDetailScreen() {
           <View className="h-[1px] bg-black/5 my-10" />
 
           <Text className="text-[9px] font-black text-primary/30 uppercase tracking-[0.2em] mb-6">Thông tin người bán</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => router.push({ pathname: '/shop/[id]', params: { id: item.seller_id } } as any)}
             className="flex-row items-center justify-between bg-gray-50 p-5 rounded-[32px] border border-black/5"
           >
             <View className="flex-row items-center">
                 {seller?.avatar_url ? (
-                  <Image 
+                  <Image
                     key={seller.avatar_url}
-                    source={{ uri: seller.avatar_url }} 
+                    source={{ uri: seller.avatar_url }}
                     style={{ width: 56, height: 56, borderRadius: 22 }}
                     contentFit="cover"
                     cachePolicy="disk"
@@ -298,8 +313,8 @@ export default function ProductDetailScreen() {
 
       <View style={styles.footerContainer}>
         {isOwnProduct ? (
-          <TouchableOpacity 
-            style={[styles.buyBtn, { marginLeft: 0 }]} 
+          <TouchableOpacity
+            style={[styles.buyBtn, { marginLeft: 0 }]}
             onPress={() => router.push({ pathname: '/(tabs)/post', params: { editId: item.id } })}
             activeOpacity={0.8}
           >
@@ -308,17 +323,26 @@ export default function ProductDetailScreen() {
           </TouchableOpacity>
         ) : (
           <>
-            <TouchableOpacity 
-              style={[styles.cartBtn, (product?.status === 'sold' || (product?.quantity || 0) <= 0) && { opacity: 0.5 }]} 
+            <TouchableOpacity
+              style={[styles.chatBtn, (product?.status === 'sold' || (product?.quantity || 0) <= 0) && { opacity: 0.5 }]}
+              onPress={handleChatWithSeller}
+              activeOpacity={0.7}
+              disabled={product?.status === 'sold' || (product?.quantity || 0) <= 0}
+            >
+              <Feather name="message-circle" size={20} color="#FF7524" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.cartBtn, (product?.status === 'sold' || (product?.quantity || 0) <= 0) && { opacity: 0.5 }]}
               onPress={handleAddToCart}
               activeOpacity={0.7}
               disabled={product?.status === 'sold' || (product?.quantity || 0) <= 0}
             >
               <Feather name="shopping-cart" size={20} color="#FF7524" />
-              <Text className="ml-2 font-black text-primary uppercase text-[14px]">Thêm vào giỏ</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.buyBtn, (product?.status === 'sold' || (product?.quantity || 0) <= 0) && { backgroundColor: '#CCC' }]} 
+
+            <TouchableOpacity
+              style={[styles.buyBtn, (product?.status === 'sold' || (product?.quantity || 0) <= 0) && { backgroundColor: '#CCC' }]}
               onPress={handleBuyNow}
               activeOpacity={0.8}
               disabled={product?.status === 'sold' || (product?.quantity || 0) <= 0}
@@ -334,7 +358,6 @@ export default function ProductDetailScreen() {
         )}
       </View>
 
-      {/* Login Required Modal */}
       <Modal
         visible={showLoginModal}
         transparent
@@ -347,8 +370,8 @@ export default function ProductDetailScreen() {
             </View>
             <Text style={{ fontSize: 20, fontWeight: '900', color: '#1A1A1A', textAlign: 'center', marginBottom: 12 }}>Bạn chưa đăng nhập</Text>
             <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 22, marginBottom: 32 }}>Vui lòng đăng nhập để có thể trải nghiệm mua sắm và quản lý đơn hàng tốt nhất trên Twee.</Text>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               onPress={() => {
                 setShowLoginModal(false);
                 router.push('/(auth)/login');
@@ -358,7 +381,7 @@ export default function ProductDetailScreen() {
               <Text style={{ color: 'white', fontWeight: '800', fontSize: 16 }}>Đăng nhập ngay</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setShowLoginModal(false)}
               style={{ width: '100%', height: 60, borderRadius: 20, alignItems: 'center', justifyContent: 'center' }}
             >
@@ -368,7 +391,6 @@ export default function ProductDetailScreen() {
         </View>
       </Modal>
 
-      {/* Condition Details Modal */}
       <Modal
         visible={showConditionModal}
         transparent
@@ -395,7 +417,7 @@ export default function ProductDetailScreen() {
               ))}
             </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setShowConditionModal(false)}
               className="mt-8 bg-primary h-16 rounded-2xl items-center justify-center shadow-lg shadow-primary/20"
             >
@@ -435,12 +457,18 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 40, left: 24, right: 24,
     flexDirection: 'row', alignItems: 'center',
   },
+  chatBtn: {
+    width: 64, height: 64, backgroundColor: '#fff', borderRadius: 24,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FF7524',
+    marginRight: 12,
+  },
   cartBtn: {
-    flex: 0.8, height: 64, backgroundColor: '#fff', borderRadius: 24,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FF7524',
+    width: 64, height: 64, backgroundColor: '#fff', borderRadius: 24,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#FF7524',
+    marginRight: 12,
   },
   buyBtn: {
-    flex: 1, height: 64, backgroundColor: '#FF7524', marginLeft: 12, borderRadius: 24,
+    flex: 1, height: 64, backgroundColor: '#FF7524', borderRadius: 24,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
   }
 });
